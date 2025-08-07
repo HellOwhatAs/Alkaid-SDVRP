@@ -2,6 +2,7 @@
 
 #include <iterator>
 #include <utility>
+#include <cstdint>
 
 namespace alkaidsd {
   class Random {
@@ -65,3 +66,4 @@ namespace alkaidsd {
     }
   };
 }  // namespace alkaidsd
+
