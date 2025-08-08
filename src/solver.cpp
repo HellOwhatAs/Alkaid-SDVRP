@@ -38,7 +38,7 @@ namespace alkaidsd {
                                              AlkaidSolution &solution, RouteContext &context,
                                              Random &random, CacheMap &cache_map) {
     cache_map.Reset(solution, context);
-    while (true) {
+    for (int i = 0; i < 5000; ++i) {
       std::vector<int> inter_neighborhoods(config.inter_operators.size());
       std::iota(inter_neighborhoods.begin(), inter_neighborhoods.end(), 0);
       random.Shuffle(inter_neighborhoods.begin(), inter_neighborhoods.end());
