@@ -91,23 +91,22 @@ impl SdSwapStar {
         }
         
         // Find best insertion for node_y using star cache
-        if let Some(best_insertion_y) = insertion_y.find_best() {
-            let total_delta = delta + delta_x + best_insertion_y.delta.value;
+        let best_insertion_y = insertion_y.find_best();
+        let total_delta = delta + delta_x + best_insertion_y.delta.value;
             
-            if cache.delta.update(total_delta, random) {
-                cache.mv = SdSwapStarMove {
-                    swapped,
-                    route_x,
-                    route_y,
-                    node_x,
-                    predecessor_y,
-                    successor_y,
-                    node_y,
-                    predecessor_x: best_insertion_y.predecessor,
-                    successor_x: best_insertion_y.successor,
-                    split_load,
-                };
-            }
+        if cache.delta.update(total_delta, random) {
+            cache.mv = SdSwapStarMove {
+                swapped,
+                route_x,
+                route_y,
+                node_x,
+                predecessor_y,
+                successor_y,
+                node_y,
+                predecessor_x: best_insertion_y.predecessor,
+                successor_x: best_insertion_y.successor,
+                split_load,
+            };
         }
     }
 

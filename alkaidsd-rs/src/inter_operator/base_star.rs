@@ -79,27 +79,26 @@ impl<const N: usize> BestInsertion<N> {
                 return;
             } else if delta == self.insertions[i].delta.value && self.insertions[i].delta.counter != -1 {
                 // Equal value - use reservoir sampling
-                self.insertions[i].delta.counter += 1;
-                if random.next_int(1, self.insertions[i].delta.counter) == 1 {
-                    // Shift down and insert
+                if random.next_int(1, self.insertions[i].delta.counter + 1) == 1 {
+                    // Selected: shift down and insert at position i
                     for j in (i + 1..N).rev() {
                         self.insertions[j] = self.insertions[j - 1].clone();
                     }
+                    self.insertions[i].delta.counter += 1;
                     self.insertions[i].predecessor = predecessor;
                     self.insertions[i].successor = successor;
+                    break;
+                } else {
+                    // Not selected: increment counter and continue to next position
+                    self.insertions[i].delta.counter += 1;
                 }
-                break;
             }
         }
     }
 
     /// Returns the best insertion.
-    pub fn find_best(&self) -> Option<&Insertion> {
-        if self.insertions[0].delta.counter > 0 {
-            Some(&self.insertions[0])
-        } else {
-            None
-        }
+    pub fn find_best(&self) -> &Insertion {
+        &self.insertions[0]
     }
 
     /// Returns the best insertion that doesn't involve a specific node.

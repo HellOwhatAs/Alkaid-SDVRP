@@ -64,22 +64,21 @@ impl Relocate {
             // Check capacity constraint
             if context.load(route_y) + solution.load(node_x) <= instance.capacity {
                 // Use star cache to find best insertion position
-                if let Some(insertion) = star_caches.get(route_y, solution.customer(node_x)).find_best() {
-                    let predecessor_x = solution.predecessor(node_x);
-                    let successor_x = solution.successor(node_x);
+                let insertion = star_caches.get(route_y, solution.customer(node_x)).find_best();
+                let predecessor_x = solution.predecessor(node_x);
+                let successor_x = solution.successor(node_x);
                     
-                    let delta = insertion.delta.value
-                        - calc_delta(instance, solution, node_x, predecessor_x, successor_x);
+                let delta = insertion.delta.value
+                    - calc_delta(instance, solution, node_x, predecessor_x, successor_x);
                     
-                    if cache.delta.update(delta, random) {
-                        cache.mv = RelocateMove {
-                            route_x,
-                            route_y,
-                            node_x,
-                            predecessor_x: insertion.predecessor,
-                            successor_x: insertion.successor,
-                        };
-                    }
+                if cache.delta.update(delta, random) {
+                    cache.mv = RelocateMove {
+                        route_x,
+                        route_y,
+                        node_x,
+                        predecessor_x: insertion.predecessor,
+                        successor_x: insertion.successor,
+                    };
                 }
             }
             node_x = solution.successor(node_x);

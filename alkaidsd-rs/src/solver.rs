@@ -130,7 +130,7 @@ impl AlkaidSolver {
     ) {
         cache_map.reset(solution, context);
 
-        for _ in 0..5000 {
+        for _rvnd_iter in 0..5000 {
             let mut neighborhoods: Vec<usize> = (0..config.inter_operators.len()).collect();
             random.shuffle(&mut neighborhoods);
 
@@ -176,8 +176,6 @@ impl AlkaidSolver {
 
                     // Re-add modified routes
                     for head in heads {
-                        // Ensure routes vector is large enough to accommodate route at index num_routes.
-                        // We need num_routes + 1 total slots (0 through num_routes inclusive).
                         let required_capacity = (num_routes + 1) as usize;
                         if required_capacity > context.num_routes() as usize {
                             context.set_num_routes(num_routes + 1);

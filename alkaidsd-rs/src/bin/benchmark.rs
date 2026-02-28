@@ -406,24 +406,31 @@ fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod> 
 fn build_sorter(sorter_args: &[String]) -> Sorter {
     let mut sorter = Sorter::new();
     
+    // Parse key-value pairs and sort by key name to match C++ std::map ordering
+    let mut parsed: Vec<(String, f64)> = Vec::new();
     for arg in sorter_args {
         if let Some((name, weight)) = parse_key_value(arg) {
-            match name.as_str() {
-                "random" => sorter.add_sort_function(Box::new(SortByRandom), weight),
-                "demand" => sorter.add_sort_function(Box::new(SortByDemand), weight),
-                "far" => sorter.add_sort_function(Box::new(SortByFar), weight),
-                "close" => sorter.add_sort_function(Box::new(SortByClose), weight),
-                _ => eprintln!("Unknown sorter: {}", name),
-            }
+            parsed.push((name, weight));
+        }
+    }
+    parsed.sort_by(|a, b| a.0.cmp(&b.0));
+    
+    for (name, weight) in &parsed {
+        match name.as_str() {
+            "random" => sorter.add_sort_function(Box::new(SortByRandom), *weight),
+            "demand" => sorter.add_sort_function(Box::new(SortByDemand), *weight),
+            "far" => sorter.add_sort_function(Box::new(SortByFar), *weight),
+            "close" => sorter.add_sort_function(Box::new(SortByClose), *weight),
+            _ => eprintln!("Unknown sorter: {}", name),
         }
     }
     
     // Default sorter if none specified
     if sorter_args.is_empty() {
-        sorter.add_sort_function(Box::new(SortByRandom), 0.078);
+        sorter.add_sort_function(Box::new(SortByClose), 0.120);
         sorter.add_sort_function(Box::new(SortByDemand), 0.225);
         sorter.add_sort_function(Box::new(SortByFar), 0.942);
-        sorter.add_sort_function(Box::new(SortByClose), 0.120);
+        sorter.add_sort_function(Box::new(SortByRandom), 0.078);
     }
     
     sorter
