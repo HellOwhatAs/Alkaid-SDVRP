@@ -201,7 +201,7 @@ impl RouteContext {
             // Use saturating_add to prevent overflow in case of corrupted data.
             // In a valid solution, total load per route should never exceed capacity,
             // but this provides safety during debugging and development.
-            load = load.saturating_add(node_load);
+            load += node_load;
             self.pre_loads[node_index as usize] = load;
             last_node = node_index;
             node_index = solution.successor(node_index);

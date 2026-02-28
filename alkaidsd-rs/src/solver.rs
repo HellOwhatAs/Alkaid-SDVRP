@@ -127,8 +127,8 @@ impl AlkaidSolver {
         context: &mut RouteContext,
         random: &mut Random,
         cache_map: &mut CacheMap,
+        debug: bool,
     ) {
-        let debug = std::env::var("ALKAID_DEBUG").is_ok();
         cache_map.reset(solution, context);
 
         for rvnd_iter in 0..5000 {
@@ -224,8 +224,8 @@ impl AlkaidSolver {
         context: &mut RouteContext,
         random: &mut Random,
         ruin_method: &mut dyn RuinMethod,
+        debug: bool,
     ) {
-        let debug = std::env::var("ALKAID_DEBUG").is_ok();
         context.calc_route_context(solution);
 
         // Ruin: get customers to remove
@@ -333,6 +333,7 @@ impl AlkaidSolver {
                 // Inter-route search
                 Self::randomized_variable_neighborhood_descent(
                     instance, config, &mut new_solution, &mut context, &mut random, &mut cache_map,
+                    debug,
                 );
 
                 let new_objective = new_solution.calc_objective(instance);
@@ -379,6 +380,7 @@ impl AlkaidSolver {
                     &mut context,
                     &mut random,
                     config.ruin_method.as_mut(),
+                    debug,
                 );
 
                 if debug {

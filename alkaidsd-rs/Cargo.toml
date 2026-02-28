@@ -26,3 +26,7 @@ path = "src/bin/benchmark.rs"
 [features]
 default = []
 cli = []
+
+[profile.release]
+lto = true
+codegen-units = 1
