@@ -141,13 +141,48 @@ struct Args {
 
 fn parse_string_list(s: &str) -> Vec<String> {
     // Parse JSON-like list: ["item1", "item2", ...]
+    // Handles items with commas inside angle brackets like "Swap<2, 0>"
     let s = s.trim();
     if s.starts_with('[') && s.ends_with(']') {
         let inner = &s[1..s.len()-1];
-        inner.split(',')
-            .map(|item| item.trim().trim_matches('"').to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut angle_depth = 0;
+        let mut in_quotes = false;
+        
+        for ch in inner.chars() {
+            match ch {
+                '"' => {
+                    in_quotes = !in_quotes;
+                }
+                '<' if !in_quotes => {
+                    angle_depth += 1;
+                    current.push(ch);
+                }
+                '>' if !in_quotes => {
+                    angle_depth -= 1;
+                    current.push(ch);
+                }
+                ',' if !in_quotes && angle_depth == 0 => {
+                    let item = current.trim().trim_matches('"').to_string();
+                    if !item.is_empty() {
+                        result.push(item);
+                    }
+                    current.clear();
+                }
+                _ => {
+                    current.push(ch);
+                }
+            }
+        }
+        
+        // Don't forget the last item
+        let item = current.trim().trim_matches('"').to_string();
+        if !item.is_empty() {
+            result.push(item);
+        }
+        
+        result
     } else {
         vec![s.to_string()]
     }
