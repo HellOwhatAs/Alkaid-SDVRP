@@ -1,7 +1,9 @@
 //! SdSwapStar operator implementation.
 //!
-//! Split Delivery SwapStar - allows splitting loads during exchange.
+//! Split Delivery SwapStar - allows splitting loads during exchange with star cache optimization.
 
+use super::base_cache::{BaseCache, InterRouteCache};
+use super::base_star::StarCaches;
 use super::{calc_delta, InterOperator};
 use crate::cache::CacheMap;
 use crate::delta::Delta;
@@ -14,7 +16,6 @@ use crate::solution::AlkaidSolution;
 #[derive(Clone, Default)]
 struct SdSwapStarMove {
     /// Whether the routes were swapped during evaluation (for route ordering)
-    #[allow(dead_code)]
     swapped: bool,
     route_x: Node,
     route_y: Node,
@@ -55,6 +56,99 @@ impl SdSwapStar {
         solution.insert(customer_x, load_y, mv.predecessor_x, mv.successor_x);
         context.set_head(mv.route_y, solution.successor(0));
     }
+
+    /// Evaluates a single node pair for SD swap star.
+    #[allow(clippy::too_many_arguments)]
+    fn sd_swap_star_inner_single(
+        instance: &Instance,
+        solution: &AlkaidSolution,
+        swapped: bool,
+        route_x: Node,
+        route_y: Node,
+        node_x: Node,
+        node_y: Node,
+        split_load: i32,
+        cache: &mut BaseCache<SdSwapStarMove>,
+        star_caches: &StarCaches,
+        random: &mut Random,
+    ) {
+        let insertion_x = star_caches.get(route_y, solution.customer(node_x));
+        let insertion_y = star_caches.get(route_x, solution.customer(node_y));
+        
+        let mut predecessor_y = solution.predecessor(node_y);
+        let mut successor_y = solution.successor(node_y);
+        
+        let delta = -calc_delta(instance, solution, node_y, predecessor_y, successor_y);
+        let mut delta_x = calc_delta(instance, solution, node_x, predecessor_y, successor_y);
+        
+        // Try to find better insertion for node_x using star cache
+        if let Some(best_insertion_x) = insertion_x.find_best_without_node(node_y) {
+            if best_insertion_x.delta.value < delta_x {
+                delta_x = best_insertion_x.delta.value;
+                predecessor_y = best_insertion_x.predecessor;
+                successor_y = best_insertion_x.successor;
+            }
+        }
+        
+        // Find best insertion for node_y using star cache
+        if let Some(best_insertion_y) = insertion_y.find_best() {
+            let total_delta = delta + delta_x + best_insertion_y.delta.value;
+            
+            if cache.delta.update(total_delta, random) {
+                cache.mv = SdSwapStarMove {
+                    swapped,
+                    route_x,
+                    route_y,
+                    node_x,
+                    predecessor_y,
+                    successor_y,
+                    node_y,
+                    predecessor_x: best_insertion_y.predecessor,
+                    successor_x: best_insertion_y.successor,
+                    split_load,
+                };
+            }
+        }
+    }
+
+    /// Inner function to evaluate all possible SD swaps between two routes.
+    #[allow(clippy::too_many_arguments)]
+    fn sd_swap_star_inner(
+        instance: &Instance,
+        solution: &AlkaidSolution,
+        context: &RouteContext,
+        route_x: Node,
+        route_y: Node,
+        cache: &mut BaseCache<SdSwapStarMove>,
+        star_caches: &StarCaches,
+        random: &mut Random,
+    ) {
+        let mut node_x = context.head(route_x);
+        while node_x != 0 {
+            let load_x = solution.load(node_x);
+
+            let mut node_y = context.head(route_y);
+            while node_y != 0 {
+                let load_y = solution.load(node_y);
+
+                if load_x > load_y {
+                    Self::sd_swap_star_inner_single(
+                        instance, solution, false, route_x, route_y, node_x, node_y,
+                        load_x - load_y, cache, star_caches, random,
+                    );
+                } else if load_y > load_x {
+                    Self::sd_swap_star_inner_single(
+                        instance, solution, true, route_y, route_x, node_y, node_x,
+                        load_y - load_x, cache, star_caches, random,
+                    );
+                }
+
+                node_y = solution.successor(node_y);
+            }
+
+            node_x = solution.successor(node_x);
+        }
+    }
 }
 
 impl InterOperator for SdSwapStar {
@@ -64,64 +158,76 @@ impl InterOperator for SdSwapStar {
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,
-        _cache_map: &mut CacheMap,
+        cache_map: &mut CacheMap,
     ) -> Vec<Node> {
         let mut best_move = SdSwapStarMove::default();
         let mut best_delta = Delta::default();
 
-        for route_x in 0..context.num_routes() {
-            for route_y in (route_x + 1)..context.num_routes() {
-                let mut node_x = context.head(route_x);
-
-                while node_x != 0 {
-                    let load_x = solution.load(node_x);
-
-                    let mut node_y = context.head(route_y);
-                    while node_y != 0 {
-                        let load_y = solution.load(node_y);
-
-                        // Only process when loads differ (split scenario)
-                        if load_x != load_y {
-                            let (swapped, n_x, n_y, r_x, r_y, split_load) = if load_x > load_y {
-                                (false, node_x, node_y, route_x, route_y, load_x - load_y)
-                            } else {
-                                (true, node_y, node_x, route_y, route_x, load_y - load_x)
-                            };
-
-                            let predecessor_y_local = solution.predecessor(n_y);
-                            let successor_y_local = solution.successor(n_y);
-
-                            let removal_y = -calc_delta(instance, solution, n_y, predecessor_y_local, successor_y_local);
-                            let insert_x = calc_delta(instance, solution, n_x, predecessor_y_local, successor_y_local);
-
-                            // Find best insertion for n_y in route containing n_x
-                            let predecessor_x_local = solution.predecessor(n_x);
-                            let successor_x_local = solution.successor(n_x);
-                            let insert_y = calc_delta(instance, solution, n_y, predecessor_x_local, successor_x_local);
-
-                            let delta = removal_y + insert_x + insert_y;
-
-                            if best_delta.update(delta, random) {
-                                best_move = SdSwapStarMove {
-                                    swapped,
-                                    route_x: r_x,
-                                    route_y: r_y,
-                                    node_x: n_x,
-                                    predecessor_y: predecessor_y_local,
-                                    successor_y: successor_y_local,
-                                    node_y: n_y,
-                                    predecessor_x: predecessor_x_local,
-                                    successor_x: successor_x_local,
-                                    split_load,
-                                };
-                            }
-                        }
-
-                        node_y = solution.successor(node_y);
-                    }
-
-                    node_x = solution.successor(node_x);
+        // Phase 1: Identify which route pairs need recomputation
+        let mut route_pairs: Vec<(Node, Node, bool)> = Vec::new();
+        {
+            let caches: &mut InterRouteCache<SdSwapStarMove> = cache_map.get(solution, context);
+            for route_x in 0..context.num_routes() {
+                for route_y in (route_x + 1)..context.num_routes() {
+                    let cache = caches.get(route_x, route_y);
+                    let needs_recompute = !cache.try_reuse();
+                    route_pairs.push((route_x, route_y, needs_recompute));
                 }
+            }
+        }
+
+        // Phase 2: Preprocess star caches for all routes that need it
+        {
+            let star_caches: &mut StarCaches = cache_map.get(solution, context);
+            for &(route_x, route_y, needs_recompute) in &route_pairs {
+                if needs_recompute {
+                    star_caches.preprocess(instance, solution, context, route_x, random);
+                    star_caches.preprocess(instance, solution, context, route_y, random);
+                }
+            }
+        }
+
+        // Phase 3: Process each route pair that needs recomputation
+        // Use local caches to avoid simultaneous borrows
+        let mut computed_results: Vec<(Node, Node, Delta<i32>, SdSwapStarMove)> = Vec::new();
+        
+        for &(route_x, route_y, needs_recompute) in &route_pairs {
+            if needs_recompute {
+                let star_caches: &StarCaches = cache_map.get(solution, context);
+                
+                let mut local_cache = BaseCache::<SdSwapStarMove>::default();
+                Self::sd_swap_star_inner(
+                    instance, solution, context, route_x, route_y, &mut local_cache, star_caches, random,
+                );
+                
+                computed_results.push((route_x, route_y, local_cache.delta, local_cache.mv));
+            }
+        }
+        
+        // Write back computed results
+        for (route_x, route_y, delta, mv) in computed_results {
+            let caches: &mut InterRouteCache<SdSwapStarMove> = cache_map.get(solution, context);
+            let cache = caches.get(route_x, route_y);
+            cache.delta = delta;
+            cache.mv = mv;
+        }
+
+        // Phase 4: Collect best move
+        let caches: &mut InterRouteCache<SdSwapStarMove> = cache_map.get(solution, context);
+        for (route_x, route_y, needs_recompute) in route_pairs {
+            let cache = caches.get(route_x, route_y);
+            if !needs_recompute {
+                // Reusing cached move, update route indices based on swapped flag
+                if !cache.mv.swapped {
+                    cache.mv.route_x = route_x;
+                    cache.mv.route_y = route_y;
+                } else {
+                    cache.mv.route_x = route_y;
+                    cache.mv.route_y = route_x;
+                }
+            }
+            if best_delta.update_from(&cache.delta, random) {
+                best_move = cache.mv.clone();
             }
         }
 

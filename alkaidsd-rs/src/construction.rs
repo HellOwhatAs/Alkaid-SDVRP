@@ -99,6 +99,7 @@ fn add_route(
 }
 
 /// Insertion with metadata.
+#[derive(Clone)]
 struct InsertionInfo {
     predecessor: Node,
     successor: Node,
@@ -181,6 +182,151 @@ fn sequential_insertion(
     }
 }
 
+/// Parallel insertion strategy.
+///
+/// Pre-computes best insertion positions for ALL candidates across ALL routes
+/// before inserting. This allows finding the globally best insertion.
+fn parallel_insertion(
+    instance: &Instance,
+    criterion: Criterion,
+    candidate_list: &mut CandidateList,
+    random: &mut Random,
+    solution: &mut AlkaidSolution,
+    context: &mut RouteContext,
+) {
+    // best_insertions[candidate][route] = InsertionInfo
+    let mut best_insertions: Vec<Vec<InsertionInfo>> = Vec::with_capacity(candidate_list.len());
+    
+    // Pre-compute best insertions for each candidate in each route
+    for (candidate_idx, &(customer, _demand)) in candidate_list.iter().enumerate() {
+        best_insertions.push(Vec::with_capacity(context.num_routes() as usize));
+        for route_index in 0..context.num_routes() {
+            let (pred, succ, delta) = find_best_insertion(
+                instance, solution, context, route_index, customer, criterion, random,
+            );
+            best_insertions[candidate_idx].push(InsertionInfo {
+                predecessor: pred,
+                successor: succ,
+                route_index,
+                cost: delta,
+                candidate_position: Some(candidate_idx),
+            });
+        }
+    }
+    
+    let mut updated = vec![false; context.num_routes() as usize];
+    
+    while !candidate_list.is_empty() {
+        let mut best = InsertionInfo::default();
+        let mut best_candidate_position: Option<usize> = None;
+        
+        // Find globally best insertion
+        for i in 0..best_insertions.len() {
+            let mut j = 0;
+            while j < best_insertions[i].len() {
+                let route_index = best_insertions[i][j].route_index;
+                let (_customer, demand) = candidate_list[i];
+                
+                // Check capacity constraint
+                if context.load(route_index) + demand > instance.capacity {
+                    // Remove this route option
+                    best_insertions[i].swap_remove(j);
+                    continue;
+                }
+                
+                // Update if route has changed
+                if updated[route_index as usize] {
+                    let (pred, succ, delta) = find_best_insertion(
+                        instance, solution, context, route_index, candidate_list[i].0, criterion, random,
+                    );
+                    best_insertions[i][j].predecessor = pred;
+                    best_insertions[i][j].successor = succ;
+                    best_insertions[i][j].cost = delta;
+                }
+                
+                if best.cost.update_from(&best_insertions[i][j].cost, random) {
+                    best = best_insertions[i][j].clone();
+                    best_candidate_position = Some(i);
+                }
+                
+                j += 1;
+            }
+        }
+        
+        // Reset updated flags
+        updated.fill(false);
+        
+        if let Some(candidate_pos) = best_candidate_position {
+            let (customer, demand) = candidate_list[candidate_pos];
+            
+            // Remove candidate from list (swap with last)
+            let last_candidate_idx = candidate_list.len() - 1;
+            if candidate_pos != last_candidate_idx {
+                candidate_list[candidate_pos] = candidate_list[last_candidate_idx];
+            }
+            candidate_list.pop();
+            
+            // Remove candidate's insertions (swap with last)
+            let last_insertion_idx = best_insertions.len() - 1;
+            if candidate_pos != last_insertion_idx {
+                best_insertions[candidate_pos] = best_insertions.pop().unwrap();
+                // Update candidate_position for swapped candidate
+                for info in &mut best_insertions[candidate_pos] {
+                    info.candidate_position = Some(candidate_pos);
+                }
+            } else {
+                best_insertions.pop();
+            }
+            
+            // Insert customer
+            let node_index = solution.insert(customer, demand, best.predecessor, best.successor);
+            let route_index = best.route_index;
+            
+            if best.predecessor == 0 {
+                context.set_head(route_index, node_index);
+            }
+            context.add_load(route_index, demand);
+            updated[route_index as usize] = true;
+        } else {
+            // No valid insertion found, add new route
+            let _position = add_route(candidate_list, random, solution, context);
+            
+            // Add new route insertions for remaining candidates
+            let new_route_index = context.num_routes() - 1;
+            for (i, &(customer, _demand)) in candidate_list.iter().enumerate() {
+                let (pred, succ, delta) = find_best_insertion(
+                    instance, solution, context, new_route_index, customer, criterion, random,
+                );
+                best_insertions[i].push(InsertionInfo {
+                    predecessor: pred,
+                    successor: succ,
+                    route_index: new_route_index,
+                    cost: delta,
+                    candidate_position: Some(i),
+                });
+            }
+            updated.push(false);
+        }
+    }
+}
+
+/// Insert candidates using randomly selected strategy.
+fn insert_candidates(
+    instance: &Instance,
+    criterion: Criterion,
+    candidate_list: &mut CandidateList,
+    random: &mut Random,
+    solution: &mut AlkaidSolution,
+    context: &mut RouteContext,
+) {
+    let strategy = random.next_int(0, 1);
+    if strategy == 0 {
+        sequential_insertion(instance, criterion, candidate_list, random, solution, context);
+    } else {
+        parallel_insertion(instance, criterion, candidate_list, random, solution, context);
+    }
+}
+
 /// Constructs an initial solution using randomized insertion heuristics.
 ///
 /// # Arguments
@@ -222,7 +368,7 @@ pub fn construct(instance: &Instance, random: &mut Random) -> AlkaidSolution {
         Criterion::Nfic
     };
 
-    sequential_insertion(instance, criterion, &mut candidate_list, random, &mut solution, &mut context);
+    insert_candidates(instance, criterion, &mut candidate_list, random, &mut solution, &mut context);
 
     solution
 }
