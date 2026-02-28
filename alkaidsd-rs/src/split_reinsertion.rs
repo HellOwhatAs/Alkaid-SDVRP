@@ -86,7 +86,7 @@ pub fn split_reinsertion(
         sum_residual -= mv.residual;
         
         // Skip with blink_rate probability if we still have enough capacity
-        if sum_residual >= remaining_demand && random.next_float() < blink_rate as f32 {
+        if sum_residual >= remaining_demand && (random.next_float() as f64) < blink_rate {
             continue;
         }
         
