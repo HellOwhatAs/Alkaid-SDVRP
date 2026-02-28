@@ -98,7 +98,7 @@ class AlkaidComparison:
         ]
         
         try:
-            subprocess.run(cmake_cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmake_cmd, check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
         except subprocess.CalledProcessError as e:
             print(f"CMake configure failed: {e.stderr}")
             return False
@@ -107,7 +107,7 @@ class AlkaidComparison:
         build_cmd = ["cmake", "--build", str(self.cpp_build_dir), "--config", "Release", "-j"]
         
         try:
-            subprocess.run(build_cmd, check=True, capture_output=True, text=True)
+            subprocess.run(build_cmd, check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
         except subprocess.CalledProcessError as e:
             print(f"CMake build failed: {e.stderr}")
             return False
@@ -116,6 +116,9 @@ class AlkaidComparison:
         if not self.cpp_executable.exists():
             # Try Windows name
             self.cpp_executable = self.cpp_build_dir / "AlkaidSD.exe"
+        if not self.cpp_executable.exists():
+            # Try MSVC multi-config build (Release subdirectory)
+            self.cpp_executable = self.cpp_build_dir / "Release" / "AlkaidSD.exe"
         
         if self.cpp_executable.exists():
             print(f"  C++ build successful: {self.cpp_executable}")
@@ -137,7 +140,9 @@ class AlkaidComparison:
                 cwd=self.rust_dir, 
                 check=True, 
                 capture_output=True, 
-                text=True
+                text=True,
+                encoding='utf-8',
+                errors='replace'
             )
         except subprocess.CalledProcessError as e:
             print(f"Cargo build failed: {e.stderr}")
@@ -238,6 +243,8 @@ class AlkaidComparison:
                     cmd,
                     capture_output=True,
                     text=True,
+                    encoding='utf-8',
+                    errors='replace',
                     timeout=time_limit + 30  # Add buffer for startup/shutdown
                 )
                 runtime = time.time() - start_time
@@ -316,6 +323,8 @@ class AlkaidComparison:
                     cmd,
                     capture_output=True,
                     text=True,
+                    encoding='utf-8',
+                    errors='replace',
                     timeout=time_limit + 30  # Add buffer for startup/shutdown
                 )
                 runtime = time.time() - start_time
