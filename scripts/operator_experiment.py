@@ -128,7 +128,7 @@ def run_experiment(cpp_exe, rust_exe, instance_path, inter_operators,
             config.update(config_overrides)
 
         f.write(f"input = {instance_path}\n")
-        f.write(f"output = /tmp/experiment_solution.txt\n")
+        f.write(f"output = {os.path.join(tempfile.gettempdir(), 'experiment_solution.txt')}\n")
         f.write(f"random-seed = {config['random-seed']}\n")
         f.write(f"time-limit = {time_limit}\n")
         f.write(f"blink-rate = {config['blink-rate']}\n")
@@ -161,7 +161,8 @@ def main():
                         default=DEFAULT_INTRA_OPERATORS,
                         help="Intra-route operators to use")
     parser.add_argument("--time-limit", type=float, default=1.0,
-                        help="Time limit per run in seconds (default: 1.0)")
+                        help="Time limit per run in seconds (default: 1.0). "
+                             "Use 5-10s for convergence testing; 0.5-1s for quick divergence checks")
     parser.add_argument("--combinations", action="store_true",
                         help="Also test operator combinations")
     parser.add_argument("--max-combo-size", type=int, default=3,

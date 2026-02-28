@@ -107,7 +107,9 @@ impl CacheMap {
         });
 
         // SAFETY: We have verified type_id1 != type_id2, so these are distinct HashMap entries.
-        // Getting two mutable references to different entries is safe.
+        // Getting two mutable references to different entries is safe because they point to
+        // non-overlapping memory. CacheMap is not thread-safe and must only be used from a
+        // single thread (which matches its usage in the single-threaded solver loop).
         let ptr1 = self.caches.get_mut(&type_id1).unwrap() as *mut Box<dyn Cache>;
         let ptr2 = self.caches.get_mut(&type_id2).unwrap() as *mut Box<dyn Cache>;
         unsafe {
