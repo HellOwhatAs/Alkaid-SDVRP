@@ -10,3 +10,7 @@ __pycache__/
 *.pyc
 # Comparison results
 /results/*.csv
+# C++ standalone build artifacts
+/standalone/build/
+# Build-compare artifacts
+/build-compare/

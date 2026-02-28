@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/AlkaidSDStandalone.dir/link.d CMakeFiles/AlkaidSDStandalone.dir/source/main.cpp.o -o AlkaidSD  _deps/alkaidsd-build/libAlkaidSD.a
