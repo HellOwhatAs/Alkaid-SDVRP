@@ -185,11 +185,9 @@ impl RouteContext {
             self.pre_loads.resize(required_size, 0);
         }
 
-        let mut load: i32 = if predecessor == 0 {
-            0  // Starting from depot, load should be 0
-        } else {
-            self.pre_loads[predecessor as usize]
-        };
+        // When starting from depot (predecessor == 0), the cumulative load is 0.
+        // When starting from a node, we use its stored cumulative load.
+        let mut load: i32 = self.pre_loads.get(predecessor as usize).copied().unwrap_or(0);
         
         let mut node_index = if predecessor != 0 {
             solution.successor(predecessor)
@@ -200,6 +198,9 @@ impl RouteContext {
         let mut last_node = predecessor;
         while node_index != 0 {
             let node_load = solution.load(node_index);
+            // Use saturating_add to prevent overflow in case of corrupted data.
+            // In a valid solution, total load per route should never exceed capacity,
+            // but this provides safety during debugging and development.
             load = load.saturating_add(node_load);
             self.pre_loads[node_index as usize] = load;
             last_node = node_index;
