@@ -289,7 +289,19 @@ fn parallel_insertion(
             updated[route_index as usize] = true;
         } else {
             // No valid insertion found, add new route
-            let _position = add_route(candidate_list, random, solution, context);
+            let position = add_route(candidate_list, random, solution, context);
+            
+            // Keep best_insertions in sync with candidate_list (swap-remove)
+            let last_idx = best_insertions.len() - 1;
+            if position != last_idx {
+                best_insertions[position] = best_insertions.pop().unwrap();
+                // Update candidate_position for swapped candidate
+                for info in &mut best_insertions[position] {
+                    info.candidate_position = Some(position);
+                }
+            } else {
+                best_insertions.pop();
+            }
             
             // Add new route insertions for remaining candidates
             let new_route_index = context.num_routes() - 1;
