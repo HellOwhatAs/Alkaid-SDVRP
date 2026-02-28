@@ -6,6 +6,7 @@ use alkaidsd::acceptance_rule::{
     AcceptanceRule, HillClimbing, HillClimbingWithEqual, LateAcceptanceHillClimbing,
     SimulatedAnnealing,
 };
+use alkaidsd::distance_matrix_optimizer::DistanceMatrixOptimizer;
 use alkaidsd::inter_operator::{
     Cross, InterOperator, Relocate, SdSwapOneOne, SdSwapStar, SdSwapTwoOne, Swap, SwapStar,
 };
@@ -448,13 +449,16 @@ fn main() {
     }
     
     // Read instance
-    let instance = match read_instance(Path::new(&args.input)) {
+    let mut instance = match read_instance(Path::new(&args.input)) {
         Ok(instance) => instance,
         Err(e) => {
             eprintln!("Error reading instance: {}", e);
             std::process::exit(1);
         }
     };
+    
+    // Optimize distance matrix using Floyd-Warshall (same as C++ implementation)
+    let optimizer = DistanceMatrixOptimizer::new(&mut instance.distance_matrix);
     
     // Build configuration
     let mut config = AlkaidConfig {
@@ -472,6 +476,10 @@ fn main() {
     // Solve
     let solver = AlkaidSolver::default();
     let solution = solver.solve(&mut config, &instance);
+    
+    // Restore intermediate nodes from Floyd-Warshall optimization
+    let mut solution = solution;
+    optimizer.restore(&mut solution);
     
     // Write output
     if let Ok(mut file) = File::create(&args.output) {
