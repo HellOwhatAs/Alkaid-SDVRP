@@ -88,7 +88,7 @@ impl RouteContext {
     /// * `node_index` - The node to query
     #[inline]
     pub fn pre_load(&self, node_index: Node) -> i32 {
-        self.pre_loads[node_index as usize]
+        unsafe { *self.pre_loads.get_unchecked(node_index as usize) }
     }
 
     /// Sets the head node of a route.

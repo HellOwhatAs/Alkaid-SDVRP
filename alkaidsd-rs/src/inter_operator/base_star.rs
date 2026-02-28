@@ -158,19 +158,21 @@ impl StarCaches {
         // Compute insertion costs for each position
         let mut predecessor = 0;
         let mut successor = context.head(route);
+        let route_cache = &mut self.caches[route_idx];
 
         loop {
             let pred_customer = solution.customer(predecessor);
             let succ_customer = solution.customer(successor);
-            let pred_distances = &instance.distance_matrix[pred_customer as usize];
-            let succ_distances = &instance.distance_matrix[succ_customer as usize];
+            let pred_distances = unsafe { instance.distance_matrix.get_unchecked(pred_customer as usize) };
+            let succ_distances = unsafe { instance.distance_matrix.get_unchecked(succ_customer as usize) };
             let distance = instance.distance(pred_customer, succ_customer);
 
             for customer in 1..instance.num_customers {
-                let delta = pred_distances[customer as usize]
-                    + succ_distances[customer as usize]
-                    - distance;
-                self.caches[route_idx][customer as usize].add(delta, predecessor, successor, random);
+                let delta = unsafe {
+                    pred_distances.get_unchecked(customer as usize)
+                    + succ_distances.get_unchecked(customer as usize)
+                } - distance;
+                route_cache[customer as usize].add(delta, predecessor, successor, random);
             }
 
             if successor == 0 {
