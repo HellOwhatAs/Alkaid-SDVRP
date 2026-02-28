@@ -40,19 +40,19 @@ impl SdSwapOneOne {
         let predecessor_y = solution.predecessor(mv.node_y);
         let successor_y = solution.successor(mv.node_y);
 
-        // Update route X
+        // Update route X: insert node_y at its best position (predecessor_x, successor_x)
         solution.set_successor(0, context.head(mv.route_x));
         solution.set_load(mv.node_x, mv.split_load);
-        solution.link(mv.predecessor_y, mv.node_y);
-        solution.link(mv.node_y, mv.successor_y);
+        solution.link(mv.predecessor_x, mv.node_y);
+        solution.link(mv.node_y, mv.successor_x);
         context.set_head(mv.route_x, solution.successor(0));
 
-        // Update route Y
+        // Update route Y: remove node_y, insert new node at its best position (predecessor_y, successor_y)
         solution.set_successor(0, context.head(mv.route_y));
         solution.link(predecessor_y, successor_y);
         let customer_x = solution.customer(mv.node_x);
         let load_y = solution.load(mv.node_y);
-        solution.insert(customer_x, load_y, mv.predecessor_x, mv.successor_x);
+        solution.insert(customer_x, load_y, mv.predecessor_y, mv.successor_y);
         context.set_head(mv.route_y, solution.successor(0));
     }
 }

@@ -40,18 +40,20 @@ impl SwapStar {
         let predecessor_y = solution.predecessor(mv.node_y);
         let successor_y = solution.successor(mv.node_y);
 
-        // Update route X
+        // Update route X: remove node_x, insert node_y at predecessor_x/successor_x
+        // (predecessor_x/successor_x hold the insertion position for node_y in route_x)
         solution.set_successor(0, context.head(mv.route_x));
         solution.link(predecessor_x, successor_x);
-        solution.link(mv.predecessor_y, mv.node_y);
-        solution.link(mv.node_y, mv.successor_y);
+        solution.link(mv.predecessor_x, mv.node_y);
+        solution.link(mv.node_y, mv.successor_x);
         context.set_head(mv.route_x, solution.successor(0));
 
-        // Update route Y
+        // Update route Y: remove node_y, insert node_x at predecessor_y/successor_y
+        // (predecessor_y/successor_y hold the insertion position for node_x in route_y)
         solution.set_successor(0, context.head(mv.route_y));
         solution.link(predecessor_y, successor_y);
-        solution.link(mv.predecessor_x, mv.node_x);
-        solution.link(mv.node_x, mv.successor_x);
+        solution.link(mv.predecessor_y, mv.node_x);
+        solution.link(mv.node_x, mv.successor_y);
         context.set_head(mv.route_y, solution.successor(0));
     }
 

@@ -187,10 +187,19 @@ fn parse_args() -> Result<Args, String> {
             result.output = args[i].clone();
         } else if arg.starts_with("--random-seed=") {
             result.random_seed = arg[14..].parse().map_err(|_| "Invalid random-seed")?;
+        } else if arg == "--random-seed" && i + 1 < args.len() {
+            i += 1;
+            result.random_seed = args[i].parse().map_err(|_| "Invalid random-seed")?;
         } else if arg.starts_with("--time-limit=") {
             result.time_limit = arg[13..].parse().map_err(|_| "Invalid time-limit")?;
+        } else if arg == "--time-limit" && i + 1 < args.len() {
+            i += 1;
+            result.time_limit = args[i].parse().map_err(|_| "Invalid time-limit")?;
         } else if arg.starts_with("--blink-rate=") {
             result.blink_rate = arg[13..].parse().map_err(|_| "Invalid blink-rate")?;
+        } else if arg == "--blink-rate" && i + 1 < args.len() {
+            i += 1;
+            result.blink_rate = args[i].parse().map_err(|_| "Invalid blink-rate")?;
         }
         
         i += 1;
