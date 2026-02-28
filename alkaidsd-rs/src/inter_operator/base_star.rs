@@ -168,10 +168,9 @@ impl StarCaches {
             let distance = instance.distance(pred_customer, succ_customer);
 
             for customer in 1..instance.num_customers {
-                let delta = unsafe {
-                    pred_distances.get_unchecked(customer as usize)
-                    + succ_distances.get_unchecked(customer as usize)
-                } - distance;
+                let delta = unsafe { *pred_distances.get_unchecked(customer as usize) }
+                    + unsafe { *succ_distances.get_unchecked(customer as usize) }
+                    - distance;
                 route_cache[customer as usize].add(delta, predecessor, successor, random);
             }
 
