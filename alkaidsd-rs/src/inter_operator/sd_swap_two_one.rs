@@ -113,6 +113,75 @@ impl SdSwapTwoOne {
             context.set_head(mv.route_k, solution.successor(0));
         }
     }
+    
+    /// Evaluates a Type 0 move with both direction options.
+    /// Type 0: load is split from node_j (the second node in the pair).
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_type0(
+        instance: &Instance,
+        solution: &AlkaidSolution,
+        best_delta: &mut Delta<i32>,
+        best_move: &mut SdSwapTwoOneMove,
+        route_ij: Node,
+        route_k: Node,
+        node_i: Node,
+        node_j: Node,
+        node_k: Node,
+        predecessor_ij: Node,
+        successor_ij: Node,
+        predecessor_k: Node,
+        successor_k: Node,
+        split_load: i32,
+        base_delta: i32,
+        random: &mut Random,
+    ) {
+        // Evaluate both direction_ij options (i-j vs j-i order in route_k)
+        let delta_ij = instance.distance(solution.customer(predecessor_k), solution.customer(node_i))
+            + instance.distance(solution.customer(node_j), solution.customer(successor_k));
+        let delta_ji = instance.distance(solution.customer(predecessor_k), solution.customer(node_j))
+            + instance.distance(solution.customer(node_i), solution.customer(successor_k));
+        
+        // Evaluate both direction_jk options (j-k vs k-j order in route_ij)
+        let delta_jk = instance.distance(solution.customer(predecessor_ij), solution.customer(node_j))
+            + instance.distance(solution.customer(node_k), solution.customer(successor_ij));
+        let delta_kj = instance.distance(solution.customer(predecessor_ij), solution.customer(node_k))
+            + instance.distance(solution.customer(node_j), solution.customer(successor_ij));
+        
+        // Choose best direction_ij
+        let (direction_ij, best_delta_ij) = if delta_ij <= delta_ji {
+            (true, delta_ij)
+        } else {
+            (false, delta_ji)
+        };
+        
+        // Choose best direction_jk (mapped to direction_ijk)
+        let (direction_ijk, best_delta_jk) = if delta_jk <= delta_kj {
+            (true, delta_jk)
+        } else {
+            (false, delta_kj)
+        };
+        
+        let delta = base_delta
+            + instance.distance(solution.customer(node_j), solution.customer(node_k))
+            + best_delta_ij
+            + best_delta_jk;
+        
+        if best_delta.update(delta, random) {
+            *best_move = SdSwapTwoOneMove {
+                move_type: 0,
+                route_ij,
+                route_k,
+                predecessor_ij,
+                successor_ij,
+                node_i,
+                node_j,
+                node_k,
+                split_load,
+                direction_ij,
+                direction_ijk,
+            };
+        }
+    }
 }
 
 impl InterOperator for SdSwapTwoOne {
@@ -154,64 +223,75 @@ impl InterOperator for SdSwapTwoOne {
 
                         // Type 0: load_i + load_j > load_k
                         if load_i + load_j > load_k {
-                            if load_i < load_k {
-                                // Evaluate type 0 move
-                                let predecessor_k = solution.predecessor(node_k);
-                                let successor_k = solution.successor(node_k);
-                                
-                                let delta_ij = instance.distance(solution.customer(predecessor_k), solution.customer(node_i))
-                                    + instance.distance(solution.customer(node_j), solution.customer(successor_k));
-                                let delta_jk = instance.distance(solution.customer(predecessor_ij), solution.customer(node_j))
-                                    + instance.distance(solution.customer(node_k), solution.customer(successor_ij));
-                                
-                                let delta = base_delta
-                                    + instance.distance(solution.customer(node_j), solution.customer(node_k))
-                                    + delta_ij
-                                    + delta_jk;
-                                
-                                if best_delta.update(delta, random) {
-                                    best_move = SdSwapTwoOneMove {
-                                        move_type: 0,
-                                        route_ij,
-                                        route_k,
-                                        predecessor_ij,
-                                        successor_ij,
-                                        node_i,
-                                        node_j,
-                                        node_k,
-                                        split_load: load_i + load_j - load_k,
-                                        direction_ij: true,
-                                        direction_ijk: true,
-                                    };
-                                }
-                            }
-                        } else if load_k > load_i + load_j {
-                            // Type 1: evaluate
                             let predecessor_k = solution.predecessor(node_k);
                             let successor_k = solution.successor(node_k);
+                            let split_load = load_i + load_j - load_k;
+                            
+                            // Evaluate with (node_i, node_j) when load_i < load_k
+                            if load_i < load_k {
+                                Self::evaluate_type0(
+                                    instance, solution, &mut best_delta, &mut best_move,
+                                    route_ij, route_k, node_i, node_j, node_k,
+                                    predecessor_ij, successor_ij, predecessor_k, successor_k,
+                                    split_load, base_delta, random,
+                                );
+                            }
+                            
+                            // Evaluate with (node_j, node_i) when load_j < load_k
+                            if load_j < load_k {
+                                Self::evaluate_type0(
+                                    instance, solution, &mut best_delta, &mut best_move,
+                                    route_ij, route_k, node_j, node_i, node_k,
+                                    predecessor_ij, successor_ij, predecessor_k, successor_k,
+                                    split_load, base_delta, random,
+                                );
+                            }
+                        } else if load_k > load_i + load_j {
+                            // Type 1: evaluate all direction combinations
+                            let predecessor_k = solution.predecessor(node_k);
+                            let successor_k = solution.successor(node_k);
+                            let split_load = load_k - load_i - load_j;
                             
                             let delta_k = instance.distance(solution.customer(predecessor_ij), solution.customer(node_k))
                                 + instance.distance(solution.customer(node_k), solution.customer(successor_ij));
-                            let delta_ijk = instance.distance(solution.customer(predecessor_k), solution.customer(node_i))
-                                + instance.distance(solution.customer(node_j), solution.customer(node_k))
-                                + instance.distance(solution.customer(node_k), solution.customer(successor_k));
+                            let base_with_k = base_delta + delta_k;
                             
-                            let delta = base_delta + delta_k + delta_ijk;
-                            
-                            if best_delta.update(delta, random) {
-                                best_move = SdSwapTwoOneMove {
-                                    move_type: 1,
-                                    route_ij,
-                                    route_k,
-                                    predecessor_ij,
-                                    successor_ij,
-                                    node_i,
-                                    node_j,
-                                    node_k,
-                                    split_load: load_k - load_i - load_j,
-                                    direction_ij: true,
-                                    direction_ijk: true,
+                            for direction_ij in [true, false] {
+                                let (before_ij, after_ij) = if direction_ij {
+                                    (node_i, node_j)
+                                } else {
+                                    (node_j, node_i)
                                 };
+                                
+                                for direction_ijk in [true, false] {
+                                    let delta_ijk = if direction_ijk {
+                                        instance.distance(solution.customer(predecessor_k), solution.customer(before_ij))
+                                            + instance.distance(solution.customer(after_ij), solution.customer(node_k))
+                                            + instance.distance(solution.customer(node_k), solution.customer(successor_k))
+                                    } else {
+                                        instance.distance(solution.customer(predecessor_k), solution.customer(node_k))
+                                            + instance.distance(solution.customer(node_k), solution.customer(before_ij))
+                                            + instance.distance(solution.customer(after_ij), solution.customer(successor_k))
+                                    };
+                                    
+                                    let delta = base_with_k + delta_ijk;
+                                    
+                                    if best_delta.update(delta, random) {
+                                        best_move = SdSwapTwoOneMove {
+                                            move_type: 1,
+                                            route_ij,
+                                            route_k,
+                                            predecessor_ij,
+                                            successor_ij,
+                                            node_i,
+                                            node_j,
+                                            node_k,
+                                            split_load,
+                                            direction_ij,
+                                            direction_ijk,
+                                        };
+                                    }
+                                }
                             }
                         }
 

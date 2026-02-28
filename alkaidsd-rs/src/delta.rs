@@ -25,14 +25,14 @@ use crate::random::Random;
 /// let mut delta = Delta::<i32>::default();
 /// let mut rng = Random::new(42);
 ///
-/// // First update always wins
-/// assert!(delta.update(10, &mut rng));
+/// // First update with negative value (improvement) wins
+/// assert!(delta.update(-10, &mut rng));
 ///
 /// // Better (lower) value wins
-/// assert!(delta.update(5, &mut rng));
+/// assert!(delta.update(-15, &mut rng));
 ///
 /// // Equal values are randomly selected
-/// let updated = delta.update(5, &mut rng);
+/// let updated = delta.update(-15, &mut rng);
 /// // updated may be true or false depending on RNG
 /// ```
 #[derive(Debug, Clone, Copy)]
@@ -82,8 +82,8 @@ impl<T: PartialOrd + Copy> Delta<T> {
     /// `true` if this new value was selected (either better or won the tie-break)
     #[inline]
     pub fn update(&mut self, new_value: T, random: &mut Random) -> bool {
-        if new_value < self.value || self.counter < 0 {
-            // New value is strictly better or this is the first update
+        if new_value < self.value {
+            // New value is strictly better
             self.value = new_value;
             self.counter = 1;
             true
@@ -110,7 +110,8 @@ impl<T: PartialOrd + Copy> Delta<T> {
     /// `true` if the other delta's value was selected
     #[inline]
     pub fn update_from(&mut self, delta: &Delta<T>, random: &mut Random) -> bool {
-        if delta.value < self.value || self.counter < 0 {
+        if delta.value < self.value {
+            // Other delta is strictly better
             self.value = delta.value;
             self.counter = delta.counter;
             true
@@ -129,14 +130,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_delta_first_update() {
+    fn test_delta_first_update_negative() {
         let mut delta = Delta::<i32>::default();
         let mut rng = Random::new(42);
 
-        // First update should always succeed
-        assert!(delta.update(100, &mut rng));
-        assert_eq!(delta.value, 100);
+        // First update with negative value should succeed (improvement)
+        assert!(delta.update(-10, &mut rng));
+        assert_eq!(delta.value, -10);
         assert_eq!(delta.counter, 1);
+    }
+
+    #[test]
+    fn test_delta_first_update_positive_rejected() {
+        let mut delta = Delta::<i32>::default();
+        let mut rng = Random::new(42);
+
+        // Positive value is not better than 0 (default), so rejected
+        assert!(!delta.update(100, &mut rng));
+        assert_eq!(delta.value, 0); // unchanged
+        assert_eq!(delta.counter, -1); // still uninitialized
     }
 
     #[test]
