@@ -19,6 +19,10 @@ name = "alkaidsd"
 path = "src/main.rs"
 required-features = ["cli"]
 
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
 [features]
 default = []
 cli = []

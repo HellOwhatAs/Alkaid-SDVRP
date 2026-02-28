@@ -185,7 +185,12 @@ impl RouteContext {
             self.pre_loads.resize(required_size, 0);
         }
 
-        let mut load = self.pre_loads[predecessor as usize];
+        let mut load: i32 = if predecessor == 0 {
+            0  // Starting from depot, load should be 0
+        } else {
+            self.pre_loads[predecessor as usize]
+        };
+        
         let mut node_index = if predecessor != 0 {
             solution.successor(predecessor)
         } else {
@@ -194,7 +199,8 @@ impl RouteContext {
 
         let mut last_node = predecessor;
         while node_index != 0 {
-            load += solution.load(node_index);
+            let node_load = solution.load(node_index);
+            load = load.saturating_add(node_load);
             self.pre_loads[node_index as usize] = load;
             last_node = node_index;
             node_index = solution.successor(node_index);

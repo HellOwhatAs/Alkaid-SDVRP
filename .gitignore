@@ -3,3 +3,10 @@
 /cpm_modules
 .DS_Store
 cmake-build-*/
+# Rust build artifacts
+/alkaidsd-rs/target/
+# Python artifacts
+__pycache__/
+*.pyc
+# Comparison results
+/results/*.csv

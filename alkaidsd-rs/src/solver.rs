@@ -176,6 +176,10 @@ impl AlkaidSolver {
 
                     // Re-add modified routes
                     for head in heads {
+                        // Ensure routes vector is large enough
+                        if num_routes as usize >= context.num_routes() as usize {
+                            context.set_num_routes(num_routes + 1);
+                        }
                         context.set_head(num_routes, head);
                         context.update_route_context(solution, num_routes, 0);
                         cache_map.add_route(num_routes);
