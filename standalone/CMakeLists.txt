@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14...3.22)
+cmake_minimum_required(VERSION 3.14)
 
 project(AlkaidSDStandalone LANGUAGES CXX)
 
@@ -10,7 +10,7 @@ include(../cmake/tools.cmake)
 
 include(../cmake/CPM.cmake)
 
-CPMAddPackage("gh:CLIUtils/CLI11@2.3.2")
+CPMAddPackage("gh:CLIUtils/CLI11@2.4.2")
 
 CPMAddPackage(NAME AlkaidSD SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 
