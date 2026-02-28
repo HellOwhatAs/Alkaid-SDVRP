@@ -15,6 +15,8 @@ use crate::solution::AlkaidSolution;
 #[derive(Debug, Clone)]
 pub struct DistanceMatrixOptimizer {
     /// Original distance matrix (before optimization)
+    /// Kept for potential future use (e.g., restoration to original distances)
+    #[allow(dead_code)]
     original: Vec<Vec<i32>>,
 
     /// Previous node indices for path reconstruction
@@ -31,9 +33,9 @@ impl DistanceMatrixOptimizer {
     /// # Returns
     ///
     /// An optimizer that can restore solutions to include intermediate nodes
-    pub fn new(distance_matrix: &mut Vec<Vec<i32>>) -> Self {
+    pub fn new(distance_matrix: &mut [Vec<i32>]) -> Self {
         let num_customers = distance_matrix.len() as Node;
-        let original = distance_matrix.clone();
+        let original = distance_matrix.to_owned();
         let mut previous_node_indices = vec![vec![0 as Node; num_customers as usize]; num_customers as usize];
 
         // Floyd-Warshall algorithm

@@ -54,6 +54,8 @@ impl SwapStar {
     }
 
     /// Finds best insertion position for a node in a route, excluding a specific node.
+    /// Kept for potential future optimization with star caching.
+    #[allow(dead_code)]
     fn find_best_insertion_excluding(
         instance: &Instance,
         solution: &AlkaidSolution,

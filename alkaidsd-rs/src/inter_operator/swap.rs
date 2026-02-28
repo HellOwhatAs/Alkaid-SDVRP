@@ -45,6 +45,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Default for Swap<NUM_X, NUM_Y> {
 
 impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     /// Helper to insert a segment, optionally reversed.
+    #[allow(clippy::too_many_arguments)]
     fn segment_insertion(
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
@@ -109,6 +110,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     }
 
     /// Evaluates a shift move (NUM_Y == 0).
+    #[allow(clippy::too_many_arguments)]
     fn update_shift(
         instance: &Instance,
         solution: &AlkaidSolution,
@@ -151,6 +153,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     }
 
     /// Evaluates a full swap move.
+    #[allow(clippy::too_many_arguments)]
     fn update_swap(
         instance: &Instance,
         solution: &AlkaidSolution,

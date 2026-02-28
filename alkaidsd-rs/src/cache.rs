@@ -62,11 +62,11 @@ impl CacheMap {
     ) -> &mut T {
         let type_id = TypeId::of::<T>();
 
-        if !self.caches.contains_key(&type_id) {
+        self.caches.entry(type_id).or_insert_with(|| {
             let mut cache = Box::new(T::default());
             cache.reset(solution, context);
-            self.caches.insert(type_id, cache);
-        }
+            cache
+        });
 
         self.caches
             .get_mut(&type_id)

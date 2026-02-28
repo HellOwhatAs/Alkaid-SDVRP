@@ -162,6 +162,7 @@ struct OrOptMove {
 
 impl<const NUM: usize> OrOpt<NUM> {
     /// Evaluates an Or-Opt move.
+    #[allow(clippy::too_many_arguments)]
     fn evaluate_inner(
         instance: &Instance,
         solution: &AlkaidSolution,

@@ -94,7 +94,7 @@ impl Random {
     /// Rotate left helper function.
     #[inline]
     fn rotate_left(x: u32, k: u32) -> u32 {
-        (x << k) | (x >> (32 - k))
+        x.rotate_left(k)
     }
 
     /// Scramble function for seed initialization.

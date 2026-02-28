@@ -140,9 +140,7 @@ fn sequential_insertion(
 
             let mut best = InsertionInfo::default();
 
-            for i in 0..candidate_list.len() {
-                let (customer, demand) = candidate_list[i];
-
+            for (i, &(customer, demand)) in candidate_list.iter().enumerate() {
                 if context.load(route_index) + demand > instance.capacity {
                     continue;
                 }

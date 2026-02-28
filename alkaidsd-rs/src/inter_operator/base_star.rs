@@ -106,15 +106,11 @@ impl<const N: usize> BestInsertion<N> {
     ///
     /// Used when the node being inserted would conflict with the cached position.
     pub fn find_best_without_node(&self, node_index: Node) -> Option<&Insertion> {
-        for insertion in &self.insertions {
-            if insertion.delta.counter > 0
+        self.insertions.iter().find(|insertion| {
+            insertion.delta.counter > 0
                 && insertion.predecessor != node_index
                 && insertion.successor != node_index
-            {
-                return Some(insertion);
-            }
-        }
-        None
+        })
     }
 }
 

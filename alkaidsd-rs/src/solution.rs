@@ -326,9 +326,7 @@ impl AlkaidSolution {
             if self.predecessor(node_index) == 0 {
                 // Start of a new route
                 let mut route = Vec::new();
-                route.push(format!(
-                    r#"{{ "customer": 0, "quantity": 0 }}"#
-                ));
+                route.push(r#"{ "customer": 0, "quantity": 0 }"#.to_string());
 
                 let mut current = node_index;
                 while current != 0 {
@@ -340,7 +338,7 @@ impl AlkaidSolution {
                     current = self.successor(current);
                 }
 
-                route.push(format!(r#"{{ "customer": 0, "quantity": 0 }}"#));
+                route.push(r#"{ "customer": 0, "quantity": 0 }"#.to_string());
                 routes.push(format!("[{}]", route.join(", ")));
             }
         }

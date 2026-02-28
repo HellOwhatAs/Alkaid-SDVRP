@@ -57,7 +57,7 @@ pub fn split_reinsertion(
         
         if residual > 0 {
             let insertion = calc_best_insertion(
-                solution, &func, context, route_index, customer, random,
+                solution, func, context, route_index, customer, random,
             );
             moves.push(SplitReinsertionMove { insertion, residual });
             sum_residual += residual;
@@ -128,7 +128,7 @@ mod tests {
         };
 
         let mut solution = AlkaidSolution::new();
-        let node1 = solution.insert(1, 50, 0, 0);
+        let _node1 = solution.insert(1, 50, 0, 0);
 
         let mut context = RouteContext::new();
         context.calc_route_context(&solution);
@@ -158,8 +158,8 @@ mod tests {
         let mut solution = AlkaidSolution::new();
         
         // Create two routes with some capacity remaining
-        let node1 = solution.insert(1, 30, 0, 0);
-        let node2 = solution.insert(1, 20, 0, 0); // Second route
+        let _node1 = solution.insert(1, 30, 0, 0);
+        let _node2 = solution.insert(1, 20, 0, 0); // Second route
 
         let mut context = RouteContext::new();
         context.calc_route_context(&solution);

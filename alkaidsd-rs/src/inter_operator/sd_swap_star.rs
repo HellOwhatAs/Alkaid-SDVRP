@@ -13,6 +13,8 @@ use crate::solution::AlkaidSolution;
 /// Move data for the SdSwapStar operator.
 #[derive(Clone, Default)]
 struct SdSwapStarMove {
+    /// Whether the routes were swapped during evaluation (for route ordering)
+    #[allow(dead_code)]
     swapped: bool,
     route_x: Node,
     route_y: Node,
