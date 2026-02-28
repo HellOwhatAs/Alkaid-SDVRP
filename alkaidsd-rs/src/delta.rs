@@ -145,7 +145,7 @@ mod tests {
         let mut delta = Delta::<i32>::default();
         let mut rng = Random::new(42);
 
-        // Positive value is not better than 0 (default), so rejected
+        // Rejected because 100 is not < 0 (the default initial value)
         assert!(!delta.update(100, &mut rng));
         assert_eq!(delta.value, 0); // unchanged
         assert_eq!(delta.counter, -1); // still uninitialized
