@@ -53,6 +53,9 @@ pub struct AlkaidConfig {
     /// Random seed for reproducibility
     pub random_seed: u32,
 
+    /// Maximum number of iterations without improvement before termination
+    pub max_stagnation: i32,
+
     /// Time limit in seconds
     pub time_limit: f64,
 
@@ -96,7 +99,7 @@ impl AlkaidSolver {
 
         let mut neighborhoods: Vec<usize> = (0..config.intra_operators.len()).collect();
 
-        for _ in 0..5000 {
+        loop {
             random.shuffle(&mut neighborhoods);
 
             let mut improved = false;
@@ -127,11 +130,10 @@ impl AlkaidSolver {
         context: &mut RouteContext,
         random: &mut Random,
         cache_map: &mut CacheMap,
-        debug: bool,
     ) {
         cache_map.reset(solution, context);
 
-        for rvnd_iter in 0..5000 {
+        loop {
             let mut neighborhoods: Vec<usize> = (0..config.inter_operators.len()).collect();
             random.shuffle(&mut neighborhoods);
 
@@ -140,25 +142,8 @@ impl AlkaidSolver {
             for &neighborhood in &neighborhoods {
                 let original_num_routes = context.num_routes();
 
-                if debug {
-                    let s = random.state();
-                    eprintln!("RUST   rvnd_iter={} before_op={} rng=[{},{},{},{}]",
-                        rvnd_iter, neighborhood, s[0], s[1], s[2], s[3]);
-                }
-
-                let routes = config.inter_operators[neighborhood].apply(
-                    instance,
-                    solution,
-                    context,
-                    random,
-                    cache_map,
-                );
-
-                if debug {
-                    let s = random.state();
-                    eprintln!("RUST   rvnd_iter={} after_op={} routes={:?} rng=[{},{},{},{}]",
-                        rvnd_iter, neighborhood, routes, s[0], s[1], s[2], s[3]);
-                }
+                let routes = config.inter_operators[neighborhood]
+                    .apply(instance, solution, context, random, cache_map);
 
                 if !routes.is_empty() {
                     let mut routes = routes;
@@ -224,26 +209,15 @@ impl AlkaidSolver {
         context: &mut RouteContext,
         random: &mut Random,
         ruin_method: &mut dyn RuinMethod,
-        debug: bool,
     ) {
         context.calc_route_context(solution);
 
         // Ruin: get customers to remove
         let customers = ruin_method.ruin(instance, solution, context, random);
 
-        if debug {
-            let s = random.state();
-            eprintln!("RUST     after_ruin customers={:?} rng=[{},{},{},{}]", customers, s[0], s[1], s[2], s[3]);
-        }
-
         // Sort customers for reinsertion
         let mut customers = customers;
         sorter.sort(instance, &mut customers, random);
-
-        if debug {
-            let s = random.state();
-            eprintln!("RUST     after_sort customers={:?} rng=[{},{},{},{}]", customers, s[0], s[1], s[2], s[3]);
-        }
 
         // Remove all nodes serving the selected customers
         for &customer in &customers {
@@ -280,8 +254,6 @@ impl AlkaidSolver {
 
     /// Main solving method.
     pub fn solve(&self, config: &mut AlkaidConfig, instance: &Instance) -> AlkaidSolution {
-        let debug = std::env::var("ALKAID_DEBUG").is_ok();
-
         if let Some(ref mut listener) = config.listener {
             listener.on_start();
         }
@@ -293,9 +265,9 @@ impl AlkaidSolver {
         let mut best_objective = i32::MAX;
 
         let start_time = Instant::now();
-        let max_stagnation = 5000.min(
-            (instance.num_customers as i32) * (calc_fleet_lower_bound(instance) as i32),
-        );
+        let max_stagnation = config
+            .max_stagnation
+            .min((instance.num_customers as i32) * (calc_fleet_lower_bound(instance) as i32));
 
         while start_time.elapsed().as_secs_f64() < config.time_limit {
             // Construct initial solution
@@ -306,11 +278,6 @@ impl AlkaidSolver {
             let mut acceptance_rule = (config.acceptance_rule)();
             let mut num_stagnation = 0;
 
-            if debug {
-                let s = random.state();
-                eprintln!("RUST construct obj={} rng=[{},{},{},{}]", objective, s[0], s[1], s[2], s[3]);
-            }
-
             while num_stagnation < max_stagnation
                 && start_time.elapsed().as_secs_f64() < config.time_limit
             {
@@ -320,28 +287,26 @@ impl AlkaidSolver {
                 context.calc_route_context(&new_solution);
                 for i in 0..context.num_routes() {
                     Self::intra_route_search(
-                        instance, config, i, &mut new_solution, &mut context, &mut random,
+                        instance,
+                        config,
+                        i,
+                        &mut new_solution,
+                        &mut context,
+                        &mut random,
                     );
-                }
-
-                if debug {
-                    let s = random.state();
-                    let obj = new_solution.calc_objective(instance);
-                    eprintln!("RUST after_intra obj={} rng=[{},{},{},{}]", obj, s[0], s[1], s[2], s[3]);
                 }
 
                 // Inter-route search
                 Self::randomized_variable_neighborhood_descent(
-                    instance, config, &mut new_solution, &mut context, &mut random, &mut cache_map,
-                    debug,
+                    instance,
+                    config,
+                    &mut new_solution,
+                    &mut context,
+                    &mut random,
+                    &mut cache_map,
                 );
 
                 let new_objective = new_solution.calc_objective(instance);
-
-                if debug {
-                    let s = random.state();
-                    eprintln!("RUST after_rvnd obj={} rng=[{},{},{},{}]", new_objective, s[0], s[1], s[2], s[3]);
-                }
 
                 // Update iteration best
                 if new_objective < iter_best_objective {
@@ -366,11 +331,6 @@ impl AlkaidSolver {
                     new_solution = solution.clone();
                 }
 
-                if debug {
-                    let s = random.state();
-                    eprintln!("RUST after_accept rng=[{},{},{},{}]", s[0], s[1], s[2], s[3]);
-                }
-
                 // Perturb
                 Self::perturb(
                     instance,
@@ -380,14 +340,7 @@ impl AlkaidSolver {
                     &mut context,
                     &mut random,
                     config.ruin_method.as_mut(),
-                    debug,
                 );
-
-                if debug {
-                    let s = random.state();
-                    let obj = new_solution.calc_objective(instance);
-                    eprintln!("RUST after_perturb obj={} rng=[{},{},{},{}]", obj, s[0], s[1], s[2], s[3]);
-                }
             }
         }
 
@@ -414,11 +367,7 @@ mod tests {
             num_customers: 3,
             capacity: 100,
             demands: vec![0, 50, 30],
-            distance_matrix: vec![
-                vec![0, 10, 20],
-                vec![10, 0, 15],
-                vec![20, 15, 0],
-            ],
+            distance_matrix: vec![vec![0, 10, 20], vec![10, 0, 15], vec![20, 15, 0]],
         };
 
         let mut sorter = Sorter::new();
@@ -426,6 +375,7 @@ mod tests {
 
         let mut config = AlkaidConfig {
             random_seed: 42,
+            max_stagnation: 5000,
             time_limit: 0.1, // Short time limit for test
             blink_rate: 0.01,
             inter_operators: vec![Box::new(SwapStar)],
