@@ -32,6 +32,12 @@ pub struct Sorter<I: ProblemInstance> {
     sort_functions: Vec<(Box<dyn SortOperator<I>>, f64)>,
 }
 
+impl<I: ProblemInstance> Default for Sorter<I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<I: ProblemInstance> Sorter<I> {
     /// Creates a new empty sorter.
     pub fn new() -> Self {
