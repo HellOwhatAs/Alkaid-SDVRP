@@ -5,18 +5,15 @@
 
 use crate::acceptance_rule::AcceptanceRule;
 use crate::cache::CacheMap;
-use crate::construction::construct;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::inter_operator::InterOperator;
 use crate::intra_operator::IntraOperator;
 use crate::random::Random;
-use crate::repair::repair;
 use crate::route_context::RouteContext;
 use crate::ruin_method::RuinMethod;
 use crate::solution::AlkaidSolution;
 use crate::sorter::Sorter;
-use crate::split_reinsertion::split_reinsertion;
-use crate::utils::calc_fleet_lower_bound;
+use crate::variant_ops::VariantOps;
 use std::time::Instant;
 
 /// Listener trait for optimization events.
@@ -43,13 +40,13 @@ pub trait Config {
 }
 
 /// Trait for SDVRP solvers.
-pub trait Solver {
+pub trait Solver<I: ProblemInstance> {
     /// Solves the problem instance.
-    fn solve(&self, config: &AlkaidConfig, instance: &Instance) -> AlkaidSolution;
+    fn solve(&self, config: &mut AlkaidConfig<I>, instance: &I, ops: &dyn VariantOps<I>) -> AlkaidSolution;
 }
 
 /// Configuration for the Alkaid solver.
-pub struct AlkaidConfig {
+pub struct AlkaidConfig<I: ProblemInstance> {
     /// Random seed for reproducibility
     pub random_seed: u32,
 
@@ -63,19 +60,19 @@ pub struct AlkaidConfig {
     pub blink_rate: f64,
 
     /// Inter-route operators
-    pub inter_operators: Vec<Box<dyn InterOperator>>,
+    pub inter_operators: Vec<Box<dyn InterOperator<I>>>,
 
     /// Intra-route operators
-    pub intra_operators: Vec<Box<dyn IntraOperator>>,
+    pub intra_operators: Vec<Box<dyn IntraOperator<I>>>,
 
     /// Factory function for acceptance rules
     pub acceptance_rule: Box<dyn Fn() -> Box<dyn AcceptanceRule>>,
 
     /// Ruin method for perturbation
-    pub ruin_method: Box<dyn RuinMethod>,
+    pub ruin_method: Box<dyn RuinMethod<I>>,
 
     /// Sorter for customer ordering
-    pub sorter: Sorter,
+    pub sorter: Sorter<I>,
 
     /// Optional listener for optimization events
     pub listener: Option<Box<dyn Listener>>,
@@ -87,15 +84,16 @@ pub struct AlkaidSolver;
 
 impl AlkaidSolver {
     /// Performs intra-route search on a single route.
-    fn intra_route_search(
-        instance: &Instance,
-        config: &AlkaidConfig,
+    fn intra_route_search<I: ProblemInstance>(
+        instance: &I,
+        config: &AlkaidConfig<I>,
+        ops: &dyn VariantOps<I>,
         route_index: Node,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,
     ) {
-        repair(instance, route_index, solution, context);
+        ops.repair_route(instance, route_index, solution, context);
 
         let mut neighborhoods: Vec<usize> = (0..config.intra_operators.len()).collect();
 
@@ -123,9 +121,10 @@ impl AlkaidSolver {
     }
 
     /// Performs randomized variable neighborhood descent across routes.
-    fn randomized_variable_neighborhood_descent(
-        instance: &Instance,
-        config: &AlkaidConfig,
+    fn randomized_variable_neighborhood_descent<I: ProblemInstance>(
+        instance: &I,
+        config: &AlkaidConfig<I>,
+        ops: &dyn VariantOps<I>,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,
@@ -182,7 +181,7 @@ impl AlkaidSolver {
                         context.update_route_context(solution, num_routes, 0);
                         cache_map.add_route(num_routes);
                         Self::intra_route_search(
-                            instance, config, num_routes, solution, context, random,
+                            instance, config, ops, num_routes, solution, context, random,
                         );
                         num_routes += 1;
                     }
@@ -201,14 +200,15 @@ impl AlkaidSolver {
     }
 
     /// Performs perturbation by ruining and repairing.
-    fn perturb(
-        instance: &Instance,
-        sorter: &Sorter,
+    fn perturb<I: ProblemInstance>(
+        instance: &I,
+        ops: &dyn VariantOps<I>,
+        sorter: &Sorter<I>,
         blink_rate: f64,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,
-        ruin_method: &mut dyn RuinMethod,
+        ruin_method: &mut dyn RuinMethod<I>,
     ) {
         context.calc_route_context(solution);
 
@@ -240,20 +240,19 @@ impl AlkaidSolver {
 
         // Repair: reinsert customers using split reinsertion
         for &customer in &customers {
-            split_reinsertion(
+            ops.reinsert_customer(
                 instance,
                 customer,
-                instance.demands[customer as usize],
-                blink_rate,
                 solution,
                 context,
                 random,
+                blink_rate,
             );
         }
     }
 
     /// Main solving method.
-    pub fn solve(&self, config: &mut AlkaidConfig, instance: &Instance) -> AlkaidSolution {
+    pub fn solve<I: ProblemInstance>(&self, config: &mut AlkaidConfig<I>, instance: &I, ops: &dyn VariantOps<I>) -> AlkaidSolution {
         if let Some(ref mut listener) = config.listener {
             listener.on_start();
         }
@@ -267,12 +266,12 @@ impl AlkaidSolver {
         let start_time = Instant::now();
         let max_stagnation = config
             .max_stagnation
-            .min((instance.num_customers as i32) * (calc_fleet_lower_bound(instance) as i32));
+            .min((instance.num_customers() as i32) * (ops.fleet_lower_bound(instance) as i32));
 
         while start_time.elapsed().as_secs_f64() < config.time_limit {
             // Construct initial solution
-            let mut solution = construct(instance, &mut random);
-            let mut objective = solution.calc_objective(instance);
+            let mut solution = ops.construct(instance, &mut random);
+            let mut objective = ops.calc_objective(instance, &solution);
             let mut iter_best_objective = objective;
             let mut new_solution = solution.clone();
             let mut acceptance_rule = (config.acceptance_rule)();
@@ -289,6 +288,7 @@ impl AlkaidSolver {
                     Self::intra_route_search(
                         instance,
                         config,
+                        ops,
                         i,
                         &mut new_solution,
                         &mut context,
@@ -300,13 +300,14 @@ impl AlkaidSolver {
                 Self::randomized_variable_neighborhood_descent(
                     instance,
                     config,
+                    ops,
                     &mut new_solution,
                     &mut context,
                     &mut random,
                     &mut cache_map,
                 );
 
-                let new_objective = new_solution.calc_objective(instance);
+                let new_objective = ops.calc_objective(instance, &new_solution);
 
                 // Update iteration best
                 if new_objective < iter_best_objective {
@@ -334,6 +335,7 @@ impl AlkaidSolver {
                 // Perturb
                 Self::perturb(
                     instance,
+                    ops,
                     &config.sorter,
                     config.blink_rate,
                     &mut new_solution,
@@ -356,10 +358,12 @@ impl AlkaidSolver {
 mod tests {
     use super::*;
     use crate::acceptance_rule::HillClimbing;
+    use crate::instance::Instance;
     use crate::inter_operator::SwapStar;
     use crate::intra_operator::Exchange;
     use crate::ruin_method::RandomRuin;
     use crate::sorter::SortByRandom;
+    use crate::variant_ops::SdvrpOps;
 
     #[test]
     fn test_solver_basic() {
@@ -387,7 +391,7 @@ mod tests {
         };
 
         let solver = AlkaidSolver::default();
-        let solution = solver.solve(&mut config, &instance);
+        let solution = solver.solve(&mut config, &instance, &SdvrpOps);
 
         // Should have found a valid solution
         assert!(!solution.node_indices().is_empty());

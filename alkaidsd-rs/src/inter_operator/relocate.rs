@@ -7,7 +7,7 @@ use super::base_star::StarCaches;
 use super::{calc_delta, InterOperator};
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -50,7 +50,7 @@ impl Relocate {
     /// Inner function to evaluate all possible relocates from route_x to route_y.
     #[allow(clippy::too_many_arguments)]
     fn relocate_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -62,7 +62,7 @@ impl Relocate {
         let mut node_x = context.head(route_x);
         while node_x != 0 {
             // Check capacity constraint
-            if context.load(route_y) + solution.load(node_x) <= instance.capacity {
+            if context.load(route_y) + solution.load(node_x) <= instance.vehicle_capacity() {
                 // Use star cache to find best insertion position
                 let insertion = star_caches.get(route_y, solution.customer(node_x)).find_best();
                 let predecessor_x = solution.predecessor(node_x);
@@ -86,10 +86,10 @@ impl Relocate {
     }
 }
 
-impl InterOperator for Relocate {
+impl<I: ProblemInstance> InterOperator<I> for Relocate {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

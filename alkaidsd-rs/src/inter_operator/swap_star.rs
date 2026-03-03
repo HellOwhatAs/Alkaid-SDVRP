@@ -7,7 +7,7 @@ use super::base_star::StarCaches;
 use super::{calc_delta, InterOperator};
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -60,7 +60,7 @@ impl SwapStar {
     /// Inner function to evaluate all possible swaps between two routes.
     #[allow(clippy::too_many_arguments)]
     fn swap_star_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -73,8 +73,8 @@ impl SwapStar {
         while node_x != 0 {
             let insertion_x = star_caches.get(route_y, solution.customer(node_x));
             let load_x = solution.load(node_x);
-            let load_y_lower = -instance.capacity + context.load(route_y) + load_x;
-            let load_y_upper = instance.capacity - context.load(route_x) + load_x;
+            let load_y_lower = -instance.vehicle_capacity() + context.load(route_y) + load_x;
+            let load_y_upper = instance.vehicle_capacity() - context.load(route_x) + load_x;
 
             let mut node_y = context.head(route_y);
             while node_y != 0 {
@@ -143,10 +143,10 @@ impl SwapStar {
     }
 }
 
-impl InterOperator for SwapStar {
+impl<I: ProblemInstance> InterOperator<I> for SwapStar {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

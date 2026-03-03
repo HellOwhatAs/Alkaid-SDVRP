@@ -6,7 +6,7 @@ use super::base_cache::{BaseCache, InterRouteCache};
 use super::{calc_delta, InterOperator};
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -59,7 +59,7 @@ impl SdSwapOneOne {
     /// Evaluates a single node pair for the SD swap(1,1) move.
     #[allow(clippy::too_many_arguments)]
     fn sd_swap_one_one_inner_eval(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         swapped: bool,
         route_x: Node,
@@ -105,7 +105,7 @@ impl SdSwapOneOne {
 
     /// Evaluates all moves for a single route pair.
     fn sd_swap_one_one_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -137,10 +137,10 @@ impl SdSwapOneOne {
     }
 }
 
-impl InterOperator for SdSwapOneOne {
+impl<I: ProblemInstance> InterOperator<I> for SdSwapOneOne {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

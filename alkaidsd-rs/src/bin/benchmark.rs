@@ -13,7 +13,7 @@ use alkaidsd::inter_operator::{
 use alkaidsd::intra_operator::{Exchange, IntraOperator, OrOpt};
 use alkaidsd::ruin_method::{RandomRuin, RuinMethod, SisrsRuin};
 use alkaidsd::sorter::{SortByClose, SortByDemand, SortByFar, SortByRandom, Sorter};
-use alkaidsd::{AlkaidConfig, AlkaidSolution, AlkaidSolver, Instance, Listener, Node};
+use alkaidsd::{AlkaidConfig, AlkaidSolution, AlkaidSolver, Instance, Listener, Node, SdvrpOps};
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -299,8 +299,8 @@ fn parse_key_value(s: &str) -> Option<(String, f64)> {
     None
 }
 
-fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator>> {
-    let mut ops: Vec<Box<dyn InterOperator>> = Vec::new();
+fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator<Instance>>> {
+    let mut ops: Vec<Box<dyn InterOperator<Instance>>> = Vec::new();
 
     for name in names {
         match name.as_str() {
@@ -331,8 +331,8 @@ fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator>> {
     ops
 }
 
-fn build_intra_operators(names: &[String]) -> Vec<Box<dyn IntraOperator>> {
-    let mut ops: Vec<Box<dyn IntraOperator>> = Vec::new();
+fn build_intra_operators(names: &[String]) -> Vec<Box<dyn IntraOperator<Instance>>> {
+    let mut ops: Vec<Box<dyn IntraOperator<Instance>>> = Vec::new();
 
     for name in names {
         match name.as_str() {
@@ -379,7 +379,7 @@ fn build_acceptance_rule(
     }
 }
 
-fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod> {
+fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod<Instance>> {
     let mut params: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     for arg in args {
         if let Some((k, v)) = parse_key_value(arg) {
@@ -415,7 +415,7 @@ fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod> 
     }
 }
 
-fn build_sorter(sorter_args: &[String]) -> Sorter {
+fn build_sorter(sorter_args: &[String]) -> Sorter<Instance> {
     let mut sorter = Sorter::new();
 
     // Parse key-value pairs and sort by key name to match C++ std::map ordering
@@ -498,7 +498,7 @@ fn main() {
 
     // Solve
     let solver = AlkaidSolver::default();
-    let solution = solver.solve(&mut config, &instance);
+    let solution = solver.solve(&mut config, &instance, &SdvrpOps);
 
     // Restore intermediate nodes from Floyd-Warshall optimization
     let mut solution = solution;

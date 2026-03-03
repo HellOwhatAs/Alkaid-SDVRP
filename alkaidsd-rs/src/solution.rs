@@ -4,7 +4,7 @@
 //! stores predecessor/successor links, customer ID, and load. This enables
 //! O(1) insertions and deletions within routes.
 
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use std::fmt;
 
 /// Internal data for a single node in the solution.
@@ -295,7 +295,7 @@ impl AlkaidSolution {
     /// # Returns
     ///
     /// The total distance traveled by all routes
-    pub fn calc_objective(&self, instance: &Instance) -> i32 {
+    pub fn calc_objective(&self, instance: &dyn ProblemInstance) -> i32 {
         let mut objective = 0;
 
         for &node_index in self.node_indices() {
@@ -377,6 +377,7 @@ impl fmt::Display for AlkaidSolution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instance::Instance;
 
     #[test]
     fn test_solution_insert_remove() {

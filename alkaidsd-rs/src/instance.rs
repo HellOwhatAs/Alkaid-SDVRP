@@ -53,6 +53,33 @@ pub struct Instance {
     pub distance_matrix: Vec<Vec<i32>>,
 }
 
+pub trait ProblemInstance {
+    fn num_customers(&self) -> Node;
+    fn distance(&self, from: Node, to: Node) -> i32;
+    fn vehicle_capacity(&self) -> i32;
+}
+
+impl ProblemInstance for Instance {
+    #[inline]
+    fn num_customers(&self) -> Node {
+        self.num_customers
+    }
+
+    #[inline]
+    fn distance(&self, from: Node, to: Node) -> i32 {
+        unsafe {
+            *self.distance_matrix
+                .get_unchecked(from as usize)
+                .get_unchecked(to as usize)
+        }
+    }
+
+    #[inline]
+    fn vehicle_capacity(&self) -> i32 {
+        self.capacity
+    }
+}
+
 impl Instance {
     /// Creates a new instance with the given parameters.
     ///

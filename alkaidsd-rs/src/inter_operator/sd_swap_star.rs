@@ -7,7 +7,7 @@ use super::base_star::StarCaches;
 use super::{calc_delta, InterOperator};
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -60,7 +60,7 @@ impl SdSwapStar {
     /// Evaluates a single node pair for SD swap star.
     #[allow(clippy::too_many_arguments)]
     fn sd_swap_star_inner_single(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         swapped: bool,
         route_x: Node,
@@ -113,7 +113,7 @@ impl SdSwapStar {
     /// Inner function to evaluate all possible SD swaps between two routes.
     #[allow(clippy::too_many_arguments)]
     fn sd_swap_star_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -150,10 +150,10 @@ impl SdSwapStar {
     }
 }
 
-impl InterOperator for SdSwapStar {
+impl<I: ProblemInstance> InterOperator<I> for SdSwapStar {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

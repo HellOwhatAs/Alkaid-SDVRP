@@ -14,7 +14,7 @@ pub mod swap;
 pub mod swap_star;
 
 use crate::cache::CacheMap;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -32,7 +32,7 @@ pub use swap_star::SwapStar;
 ///
 /// Inter-route operators improve solutions by exchanging or relocating
 /// nodes between different routes.
-pub trait InterOperator {
+pub trait InterOperator<I: ProblemInstance> {
     /// Attempts to improve the solution across routes.
     ///
     /// # Arguments
@@ -48,7 +48,7 @@ pub trait InterOperator {
     /// A vector of modified route indices (empty if no improvement found)
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,
@@ -109,7 +109,7 @@ impl<'a> Drop for RouteHeadGuard<'a> {
 /// * `successor` - The successor position
 #[inline]
 pub fn calc_delta(
-    instance: &Instance,
+    instance: &impl ProblemInstance,
     solution: &AlkaidSolution,
     node_index: Node,
     predecessor: Node,

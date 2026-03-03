@@ -36,9 +36,11 @@ pub mod solver;
 pub mod sorter;
 pub mod split_reinsertion;
 pub mod utils;
+pub mod variant_ops;
 
 // Re-export main types at crate root for convenience
 pub use acceptance_rule::AcceptanceRule;
-pub use instance::{Instance, Node};
+pub use instance::{Instance, Node, ProblemInstance};
 pub use solution::AlkaidSolution;
 pub use solver::{AlkaidConfig, AlkaidSolver, Config, Listener, Solver};
+pub use variant_ops::{SdvrpOps, VariantOps};
