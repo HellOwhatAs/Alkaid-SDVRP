@@ -6,7 +6,7 @@ use super::base_cache::{BaseCache, InterRouteCache};
 use super::InterOperator;
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -118,7 +118,7 @@ impl SdSwapTwoOne {
     /// Evaluates Type 0 moves for a given (node_i, node_j, node_k) triple.
     #[allow(clippy::too_many_arguments)]
     fn sd_swap_two_one0(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         route_ij: Node,
         route_k: Node,
@@ -184,7 +184,7 @@ impl SdSwapTwoOne {
     /// Evaluates Type 1 moves for a given (node_i, node_j, node_k) triple.
     #[allow(clippy::too_many_arguments)]
     fn sd_swap_two_one1(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         route_ij: Node,
         route_k: Node,
@@ -245,7 +245,7 @@ impl SdSwapTwoOne {
 
     /// Evaluates all moves for a single route pair.
     fn sd_swap_two_one_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_ij: Node,
@@ -304,10 +304,10 @@ impl SdSwapTwoOne {
     }
 }
 
-impl InterOperator for SdSwapTwoOne {
+impl<I: ProblemInstance> InterOperator<I> for SdSwapTwoOne {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

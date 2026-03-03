@@ -3,7 +3,7 @@
 //! These operators modify nodes within a single route to reduce cost.
 
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -11,7 +11,7 @@ use crate::solution::AlkaidSolution;
 /// Trait for intra-route operators.
 ///
 /// Intra-route operators improve a single route by rearranging its nodes.
-pub trait IntraOperator {
+pub trait IntraOperator<I: ProblemInstance> {
     /// Attempts to improve the given route.
     ///
     /// # Arguments
@@ -27,7 +27,7 @@ pub trait IntraOperator {
     /// `true` if an improving move was found and applied
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         route_index: Node,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
@@ -50,7 +50,7 @@ struct ExchangeMove {
 impl Exchange {
     /// Evaluates an exchange move between two nodes.
     fn evaluate_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         node_a: Node,
         node_b: Node,
@@ -104,10 +104,10 @@ impl Exchange {
     }
 }
 
-impl IntraOperator for Exchange {
+impl<I: ProblemInstance> IntraOperator<I> for Exchange {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         route_index: Node,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
@@ -164,7 +164,7 @@ impl<const NUM: usize> OrOpt<NUM> {
     /// Evaluates an Or-Opt move.
     #[allow(clippy::too_many_arguments)]
     fn evaluate_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         head: Node,
         tail: Node,
@@ -241,10 +241,10 @@ impl<const NUM: usize> OrOpt<NUM> {
     }
 }
 
-impl<const NUM: usize> IntraOperator for OrOpt<NUM> {
+impl<I: ProblemInstance, const NUM: usize> IntraOperator<I> for OrOpt<NUM> {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         route_index: Node,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
@@ -308,6 +308,7 @@ impl<const NUM: usize> IntraOperator for OrOpt<NUM> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instance::Instance;
 
     fn setup() -> (Instance, AlkaidSolution, RouteContext) {
         let instance = Instance {

@@ -6,7 +6,7 @@ use super::base_cache::{BaseCache, InterRouteCache};
 use super::InterOperator;
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -112,7 +112,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     /// Evaluates a shift move (NUM_Y == 0).
     #[allow(clippy::too_many_arguments)]
     fn update_shift(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         route_x: Node,
         route_y: Node,
@@ -155,7 +155,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     /// Evaluates a full swap move.
     #[allow(clippy::too_many_arguments)]
     fn update_swap(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         route_x: Node,
         route_y: Node,
@@ -210,7 +210,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
 
     /// Inner evaluation loop for swap moves.
     fn swap_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -251,7 +251,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
                 base_x
             };
 
-            let load_y_lower = -instance.capacity + context.load(route_y) + load_x;
+            let load_y_lower = -instance.vehicle_capacity() + context.load(route_y) + load_x;
 
             if NUM_Y == 0 {
                 if load_y_lower <= 0 {
@@ -273,7 +273,7 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
                     }
                 }
             } else {
-                let load_y_upper = instance.capacity - context.load(route_x) + load_x;
+                let load_y_upper = instance.vehicle_capacity() - context.load(route_x) + load_x;
 
                 let mut left_y = context.head(route_y);
                 let mut load_y = solution.load(left_y);
@@ -318,13 +318,13 @@ impl<const NUM_X: usize, const NUM_Y: usize> Swap<NUM_X, NUM_Y> {
     }
 }
 
-impl<const NUM_X: usize, const NUM_Y: usize> InterOperator for Swap<NUM_X, NUM_Y>
+impl<I: ProblemInstance, const NUM_X: usize, const NUM_Y: usize> InterOperator<I> for Swap<NUM_X, NUM_Y>
 where
     SwapMove<NUM_X, NUM_Y>: Clone + Default,
 {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

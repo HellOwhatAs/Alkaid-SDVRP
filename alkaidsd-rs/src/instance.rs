@@ -53,6 +53,73 @@ pub struct Instance {
     pub distance_matrix: Vec<Vec<i32>>,
 }
 
+/// Abstract interface for a VRP problem instance.
+///
+/// This trait provides only the universal operations needed by operators
+/// and search processes, hiding variant-specific details like demand
+/// structures, time windows, or other problem-specific constraints.
+///
+/// # Implementing a new VRP variant
+///
+/// To support a new VRP variant, implement this trait for your instance type
+/// and implement [`VariantOps`](crate::variant_ops::VariantOps) for the
+/// variant-specific operations (construction, repair, reinsertion).
+///
+/// # Example
+///
+/// ```
+/// use alkaidsd::instance::{Node, ProblemInstance};
+///
+/// struct MyInstance {
+///     distances: Vec<Vec<i32>>,
+///     n: Node,
+///     cap: i32,
+/// }
+///
+/// impl ProblemInstance for MyInstance {
+///     fn num_customers(&self) -> Node { self.n }
+///     fn distance(&self, from: Node, to: Node) -> i32 {
+///         self.distances[from as usize][to as usize]
+///     }
+///     fn vehicle_capacity(&self) -> i32 { self.cap }
+/// }
+/// ```
+pub trait ProblemInstance {
+    /// Returns the number of nodes including the depot (node 0).
+    fn num_customers(&self) -> Node;
+
+    /// Returns the distance (cost) between two nodes.
+    fn distance(&self, from: Node, to: Node) -> i32;
+
+    /// Returns the vehicle capacity.
+    ///
+    /// For unconstrained variants, return `i32::MAX`.
+    fn vehicle_capacity(&self) -> i32;
+}
+
+impl ProblemInstance for Instance {
+    #[inline]
+    fn num_customers(&self) -> Node {
+        self.num_customers
+    }
+
+    #[inline]
+    fn distance(&self, from: Node, to: Node) -> i32 {
+        // SAFETY: `from` and `to` are valid node indices in 0..num_customers,
+        // guaranteed by the problem structure (depot=0, customers=1..num_customers-1).
+        unsafe {
+            *self.distance_matrix
+                .get_unchecked(from as usize)
+                .get_unchecked(to as usize)
+        }
+    }
+
+    #[inline]
+    fn vehicle_capacity(&self) -> i32 {
+        self.capacity
+    }
+}
+
 impl Instance {
     /// Creates a new instance with the given parameters.
     ///

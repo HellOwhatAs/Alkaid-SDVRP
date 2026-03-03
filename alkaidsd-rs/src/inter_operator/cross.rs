@@ -6,7 +6,7 @@ use super::base_cache::{BaseCache, InterRouteCache};
 use super::InterOperator;
 use crate::cache::CacheMap;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -78,7 +78,7 @@ impl Cross {
 
     /// Inner evaluation loop for cross moves.
     fn cross_inner(
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route_x: Node,
@@ -114,8 +114,8 @@ impl Cross {
                     - instance.distance(solution.customer(left_y), solution.customer(successor_y));
 
                 for reversed in [false, true] {
-                    if predecessor_load_x + successor_load_y <= instance.capacity
-                        && successor_load_x + predecessor_load_y <= instance.capacity
+                    if predecessor_load_x + successor_load_y <= instance.vehicle_capacity()
+                        && successor_load_x + predecessor_load_y <= instance.vehicle_capacity()
                     {
                         let delta = base
                             + instance.distance(solution.customer(left_x), solution.customer(successor_y))
@@ -151,10 +151,10 @@ impl Cross {
     }
 }
 
-impl InterOperator for Cross {
+impl<I: ProblemInstance> InterOperator<I> for Cross {
     fn apply(
         &self,
-        instance: &Instance,
+        instance: &I,
         solution: &mut AlkaidSolution,
         context: &mut RouteContext,
         random: &mut Random,

@@ -3,14 +3,14 @@
 //! Different sorting strategies can affect solution quality by
 //! influencing the order in which customers are reinserted.
 
-use crate::instance::{Instance, Node};
+use crate::instance::{Instance, Node, ProblemInstance};
 use crate::random::Random;
 
 /// Trait for sorting operators.
 ///
 /// Sort operators define different strategies for ordering customers
 /// during the repair phase of the algorithm.
-pub trait SortOperator {
+pub trait SortOperator<I: ProblemInstance> {
     /// Sorts the given vector of customers in place.
     ///
     /// # Arguments
@@ -18,25 +18,33 @@ pub trait SortOperator {
     /// * `instance` - The problem instance
     /// * `customers` - Mutable slice of customer indices to sort
     /// * `random` - Random number generator
-    fn sort(&self, instance: &Instance, customers: &mut [Node], random: &mut Random);
+    fn sort(&self, instance: &I, customers: &mut [Node], random: &mut Random);
 }
 
 /// A weighted collection of sort operators.
 ///
 /// Randomly selects a sort operator based on assigned weights.
-#[derive(Default)]
-pub struct Sorter {
+pub struct Sorter<I: ProblemInstance> {
     /// Sum of all weights
     sum_weights: f64,
 
     /// Sort operators with their weights
-    sort_functions: Vec<(Box<dyn SortOperator>, f64)>,
+    sort_functions: Vec<(Box<dyn SortOperator<I>>, f64)>,
 }
 
-impl Sorter {
+impl<I: ProblemInstance> Default for Sorter<I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<I: ProblemInstance> Sorter<I> {
     /// Creates a new empty sorter.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            sum_weights: 0.0,
+            sort_functions: Vec::new(),
+        }
     }
 
     /// Adds a sort operator with the specified weight.
@@ -45,7 +53,7 @@ impl Sorter {
     ///
     /// * `sort_function` - The sort operator
     /// * `weight` - Selection weight (higher = more likely to be chosen)
-    pub fn add_sort_function(&mut self, sort_function: Box<dyn SortOperator>, weight: f64) {
+    pub fn add_sort_function(&mut self, sort_function: Box<dyn SortOperator<I>>, weight: f64) {
         self.sum_weights += weight;
         self.sort_functions.push((sort_function, weight));
     }
@@ -59,7 +67,7 @@ impl Sorter {
     /// * `instance` - The problem instance
     /// * `customers` - Mutable slice of customer indices to sort
     /// * `random` - Random number generator
-    pub fn sort(&self, instance: &Instance, customers: &mut [Node], random: &mut Random) {
+    pub fn sort(&self, instance: &I, customers: &mut [Node], random: &mut Random) {
         let mut r = random.next_float() as f64 * self.sum_weights;
 
         for (sort_function, weight) in &self.sort_functions {
@@ -76,8 +84,8 @@ impl Sorter {
 #[derive(Debug, Clone, Default)]
 pub struct SortByRandom;
 
-impl SortOperator for SortByRandom {
-    fn sort(&self, _instance: &Instance, customers: &mut [Node], random: &mut Random) {
+impl<I: ProblemInstance> SortOperator<I> for SortByRandom {
+    fn sort(&self, _instance: &I, customers: &mut [Node], random: &mut Random) {
         random.shuffle(customers);
     }
 }
@@ -88,7 +96,7 @@ impl SortOperator for SortByRandom {
 #[derive(Debug, Clone, Default)]
 pub struct SortByDemand;
 
-impl SortOperator for SortByDemand {
+impl SortOperator<Instance> for SortByDemand {
     fn sort(&self, instance: &Instance, customers: &mut [Node], _random: &mut Random) {
         customers.sort_by(|&a, &b| {
             instance.demands[b as usize].cmp(&instance.demands[a as usize])
@@ -102,10 +110,10 @@ impl SortOperator for SortByDemand {
 #[derive(Debug, Clone, Default)]
 pub struct SortByFar;
 
-impl SortOperator for SortByFar {
-    fn sort(&self, instance: &Instance, customers: &mut [Node], _random: &mut Random) {
+impl<I: ProblemInstance> SortOperator<I> for SortByFar {
+    fn sort(&self, instance: &I, customers: &mut [Node], _random: &mut Random) {
         customers.sort_by(|&a, &b| {
-            instance.distance_matrix[0][b as usize].cmp(&instance.distance_matrix[0][a as usize])
+            instance.distance(0, b).cmp(&instance.distance(0, a))
         });
     }
 }
@@ -116,10 +124,10 @@ impl SortOperator for SortByFar {
 #[derive(Debug, Clone, Default)]
 pub struct SortByClose;
 
-impl SortOperator for SortByClose {
-    fn sort(&self, instance: &Instance, customers: &mut [Node], _random: &mut Random) {
+impl<I: ProblemInstance> SortOperator<I> for SortByClose {
+    fn sort(&self, instance: &I, customers: &mut [Node], _random: &mut Random) {
         customers.sort_by(|&a, &b| {
-            instance.distance_matrix[0][a as usize].cmp(&instance.distance_matrix[0][b as usize])
+            instance.distance(0, a).cmp(&instance.distance(0, b))
         });
     }
 }

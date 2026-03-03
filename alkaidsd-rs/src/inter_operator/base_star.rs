@@ -5,7 +5,7 @@
 
 use crate::cache::Cache;
 use crate::delta::Delta;
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -131,7 +131,7 @@ impl StarCaches {
     /// Computes the best insertion positions for all customers in the given route.
     pub fn preprocess(
         &mut self,
-        instance: &Instance,
+        instance: &impl ProblemInstance,
         solution: &AlkaidSolution,
         context: &RouteContext,
         route: Node,
@@ -150,8 +150,8 @@ impl StarCaches {
         }
 
         // Initialize insertions for all customers
-        self.caches[route_idx].resize(instance.num_customers as usize, BestInsertion::default());
-        for customer in 1..instance.num_customers {
+        self.caches[route_idx].resize(instance.num_customers() as usize, BestInsertion::default());
+        for customer in 1..instance.num_customers() {
             self.caches[route_idx][customer as usize].reset();
         }
 
@@ -163,13 +163,11 @@ impl StarCaches {
         loop {
             let pred_customer = solution.customer(predecessor);
             let succ_customer = solution.customer(successor);
-            let pred_distances = unsafe { instance.distance_matrix.get_unchecked(pred_customer as usize) };
-            let succ_distances = unsafe { instance.distance_matrix.get_unchecked(succ_customer as usize) };
             let distance = instance.distance(pred_customer, succ_customer);
 
-            for customer in 1..instance.num_customers {
-                let delta = unsafe { *pred_distances.get_unchecked(customer as usize) }
-                    + unsafe { *succ_distances.get_unchecked(customer as usize) }
+            for customer in 1..instance.num_customers() {
+                let delta = instance.distance(pred_customer, customer)
+                    + instance.distance(succ_customer, customer)
                     - distance;
                 route_cache[customer as usize].add(delta, predecessor, successor, random);
             }

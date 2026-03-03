@@ -3,7 +3,7 @@
 //! Ruin methods remove customers from the solution, creating opportunities
 //! for improvement when they are reinserted.
 
-use crate::instance::{Instance, Node};
+use crate::instance::{Node, ProblemInstance};
 use crate::random::Random;
 use crate::route_context::RouteContext;
 use crate::solution::AlkaidSolution;
@@ -13,7 +13,7 @@ use std::collections::HashSet;
 ///
 /// A ruin method removes customers from the solution to allow
 /// exploration of different configurations during the repair phase.
-pub trait RuinMethod {
+pub trait RuinMethod<I: ProblemInstance> {
     /// Removes customers from the solution.
     ///
     /// # Arguments
@@ -28,7 +28,7 @@ pub trait RuinMethod {
     /// A vector of customer indices that should be removed and reinserted
     fn ruin(
         &mut self,
-        instance: &Instance,
+        instance: &I,
         solution: &AlkaidSolution,
         context: &RouteContext,
         random: &mut Random,
@@ -55,10 +55,10 @@ impl RandomRuin {
     }
 }
 
-impl RuinMethod for RandomRuin {
+impl<I: ProblemInstance> RuinMethod<I> for RandomRuin {
     fn ruin(
         &mut self,
-        instance: &Instance,
+        instance: &I,
         _solution: &AlkaidSolution,
         _context: &RouteContext,
         random: &mut Random,
@@ -68,7 +68,7 @@ impl RuinMethod for RandomRuin {
             [random.next_int(0, self.num_perturb_customers.len() as i32 - 1) as usize];
 
         // Create list of all customers (excluding depot)
-        let mut customers: Vec<Node> = (1..instance.num_customers).collect();
+        let mut customers: Vec<Node> = (1..instance.num_customers()).collect();
         random.shuffle(&mut customers);
 
         // Return first num_perturb customers
@@ -154,29 +154,27 @@ impl SisrsRuin {
     }
 }
 
-impl RuinMethod for SisrsRuin {
+impl<I: ProblemInstance> RuinMethod<I> for SisrsRuin {
     fn ruin(
         &mut self,
-        instance: &Instance,
+        instance: &I,
         solution: &AlkaidSolution,
         context: &RouteContext,
         random: &mut Random,
     ) -> Vec<Node> {
         // Calculate parameters
-        let average_length = (instance.num_customers - 1) as f64 / context.num_routes() as f64;
+        let average_length = (instance.num_customers() - 1) as f64 / context.num_routes() as f64;
         let max_length = (self.max_length as f64).min(average_length);
         let max_strings = 4.0 * self.average_customers as f64 / (1.0 + self.max_length as f64) - 1.0;
         let num_strings = (random.next_float() as f64 * max_strings) as usize + 1;
 
         // Select seed customer
-        let customer_seed = random.next_int(1, instance.num_customers as i32 - 1) as Node;
-        let seed_distances = &instance.distance_matrix[customer_seed as usize];
-
+        let customer_seed = random.next_int(1, instance.num_customers() as i32 - 1) as Node;
         // Sort nodes by distance from seed
         let mut node_indices: Vec<Node> = solution.node_indices().to_vec();
         node_indices.sort_by(|&a, &b| {
-            seed_distances[solution.customer(a) as usize]
-                .cmp(&seed_distances[solution.customer(b) as usize])
+            instance.distance(customer_seed, solution.customer(a))
+                .cmp(&instance.distance(customer_seed, solution.customer(b)))
         });
 
         // Visit routes and collect customers to remove
@@ -244,6 +242,7 @@ impl RuinMethod for SisrsRuin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instance::Instance;
 
     fn test_instance() -> Instance {
         Instance {
