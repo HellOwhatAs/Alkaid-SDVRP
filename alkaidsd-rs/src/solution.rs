@@ -4,79 +4,8 @@
 //! stores predecessor/successor links, customer ID, and load. This enables
 //! O(1) insertions and deletions within routes.
 
-use crate::instance::{Node, ProblemInstance};
+use crate::instance::{Instance, Node};
 use std::fmt;
-
-/// Abstract interface for a VRP solution.
-///
-/// This trait provides the common operations needed by operators and search
-/// processes, hiding the specific data structure implementation details.
-/// The solution uses a linked-list style representation where routes are
-/// chains of nodes connected by predecessor/successor links.
-pub trait VrpSolution {
-    /// Returns the predecessor of the given node.
-    fn predecessor(&self, node_index: Node) -> Node;
-
-    /// Returns the successor of the given node.
-    fn successor(&self, node_index: Node) -> Node;
-
-    /// Returns the customer served by the given node.
-    fn customer(&self, node_index: Node) -> Node;
-
-    /// Returns the load delivered at the given node.
-    fn load(&self, node_index: Node) -> i32;
-
-    /// Sets the predecessor of a node.
-    fn set_predecessor(&mut self, node_index: Node, predecessor: Node);
-
-    /// Sets the successor of a node.
-    fn set_successor(&mut self, node_index: Node, successor: Node);
-
-    /// Sets the customer of a node.
-    fn set_customer(&mut self, node_index: Node, customer: Node);
-
-    /// Sets the load of a node.
-    fn set_load(&mut self, node_index: Node, load: i32);
-
-    /// Links two nodes together (predecessor → successor).
-    fn link(&mut self, predecessor: Node, successor: Node);
-
-    /// Inserts a new node between predecessor and successor.
-    ///
-    /// Returns the index of the newly created node.
-    fn insert(&mut self, customer: Node, load: i32, predecessor: Node, successor: Node) -> Node;
-
-    /// Removes a node from its current position.
-    fn remove(&mut self, node_index: Node);
-
-    /// Creates a new node with the given customer and load.
-    ///
-    /// Returns the index of the new node.
-    fn new_node(&mut self, customer: Node, load: i32) -> Node;
-
-    /// Reverses the links between two nodes and connects to new neighbors.
-    fn reversed_link(&mut self, left: Node, right: Node, predecessor: Node, successor: Node);
-
-    /// Returns all used node indices.
-    fn node_indices(&self) -> &[Node];
-
-    /// Returns the maximum node index in use.
-    fn max_node_index(&self) -> Node;
-
-    /// Calculates the objective value (total distance) of the solution.
-    fn calc_objective(&self, instance: &dyn ProblemInstance) -> i32 {
-        let mut objective = 0;
-        for &node_index in self.node_indices() {
-            let predecessor = self.predecessor(node_index);
-            let successor = self.successor(node_index);
-            objective += instance.distance(self.customer(predecessor), self.customer(node_index));
-            if successor == 0 {
-                objective += instance.distance(self.customer(node_index), 0);
-            }
-        }
-        objective
-    }
-}
 
 /// Internal data for a single node in the solution.
 ///
@@ -366,7 +295,7 @@ impl AlkaidSolution {
     /// # Returns
     ///
     /// The total distance traveled by all routes
-    pub fn calc_objective(&self, instance: &dyn ProblemInstance) -> i32 {
+    pub fn calc_objective(&self, instance: &Instance) -> i32 {
         let mut objective = 0;
 
         for &node_index in self.node_indices() {
@@ -418,80 +347,6 @@ impl AlkaidSolution {
     }
 }
 
-impl VrpSolution for AlkaidSolution {
-    #[inline]
-    fn predecessor(&self, node_index: Node) -> Node {
-        self.predecessor(node_index)
-    }
-
-    #[inline]
-    fn successor(&self, node_index: Node) -> Node {
-        self.successor(node_index)
-    }
-
-    #[inline]
-    fn customer(&self, node_index: Node) -> Node {
-        self.customer(node_index)
-    }
-
-    #[inline]
-    fn load(&self, node_index: Node) -> i32 {
-        self.load(node_index)
-    }
-
-    #[inline]
-    fn set_predecessor(&mut self, node_index: Node, predecessor: Node) {
-        self.set_predecessor(node_index, predecessor)
-    }
-
-    #[inline]
-    fn set_successor(&mut self, node_index: Node, successor: Node) {
-        self.set_successor(node_index, successor)
-    }
-
-    #[inline]
-    fn set_customer(&mut self, node_index: Node, customer: Node) {
-        self.set_customer(node_index, customer)
-    }
-
-    #[inline]
-    fn set_load(&mut self, node_index: Node, load: i32) {
-        self.set_load(node_index, load)
-    }
-
-    #[inline]
-    fn link(&mut self, predecessor: Node, successor: Node) {
-        self.link(predecessor, successor)
-    }
-
-    #[inline]
-    fn insert(&mut self, customer: Node, load: i32, predecessor: Node, successor: Node) -> Node {
-        self.insert(customer, load, predecessor, successor)
-    }
-
-    fn remove(&mut self, node_index: Node) {
-        self.remove(node_index)
-    }
-
-    fn new_node(&mut self, customer: Node, load: i32) -> Node {
-        self.new_node(customer, load)
-    }
-
-    fn reversed_link(&mut self, left: Node, right: Node, predecessor: Node, successor: Node) {
-        self.reversed_link(left, right, predecessor, successor)
-    }
-
-    #[inline]
-    fn node_indices(&self) -> &[Node] {
-        self.node_indices()
-    }
-
-    #[inline]
-    fn max_node_index(&self) -> Node {
-        self.max_node_index()
-    }
-}
-
 impl fmt::Display for AlkaidSolution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut num_routes = 0;
@@ -522,7 +377,6 @@ impl fmt::Display for AlkaidSolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instance::Instance;
 
     #[test]
     fn test_solution_insert_remove() {

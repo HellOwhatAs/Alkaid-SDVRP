@@ -11,25 +11,6 @@
 /// This mirrors the C++ `using Node = short` declaration.
 pub type Node = i16;
 
-/// Abstract interface for a VRP problem instance.
-///
-/// This trait provides the common operations needed by operators and search
-/// processes, hiding the specific VRP variant and data structure details.
-/// Implementations may represent SDVRP, CVRP, VRPTW, or any other variant.
-pub trait ProblemInstance {
-    /// Returns the number of nodes including the depot (node 0).
-    fn num_customers(&self) -> Node;
-
-    /// Returns the vehicle capacity.
-    fn capacity(&self) -> i32;
-
-    /// Returns the demand at a given node.
-    fn demand(&self, node: Node) -> i32;
-
-    /// Returns the distance (cost) between two nodes.
-    fn distance(&self, from: Node, to: Node) -> i32;
-}
-
 /// Represents a problem instance for the Split Delivery Vehicle Routing Problem.
 ///
 /// # Fields
@@ -125,31 +106,5 @@ impl Instance {
     #[inline]
     pub fn demand(&self, node: Node) -> i32 {
         self.demands[node as usize]
-    }
-}
-
-impl ProblemInstance for Instance {
-    #[inline]
-    fn num_customers(&self) -> Node {
-        self.num_customers
-    }
-
-    #[inline]
-    fn capacity(&self) -> i32 {
-        self.capacity
-    }
-
-    #[inline]
-    fn demand(&self, node: Node) -> i32 {
-        self.demands[node as usize]
-    }
-
-    #[inline]
-    fn distance(&self, from: Node, to: Node) -> i32 {
-        unsafe {
-            *self.distance_matrix
-                .get_unchecked(from as usize)
-                .get_unchecked(to as usize)
-        }
     }
 }

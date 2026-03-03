@@ -7,7 +7,7 @@ use crate::cache::Cache;
 use crate::delta::Delta;
 use crate::instance::Node;
 use crate::route_context::RouteContext;
-use crate::solution::VrpSolution;
+use crate::solution::AlkaidSolution;
 use std::any::Any;
 
 /// Single cache entry storing a move and its delta.
@@ -100,7 +100,7 @@ impl<T: Clone + Default + 'static> InterRouteCache<T> {
 }
 
 impl<T: Clone + Default + 'static> Cache for InterRouteCache<T> {
-    fn reset(&mut self, _solution: &dyn VrpSolution, context: &RouteContext) {
+    fn reset(&mut self, _solution: &AlkaidSolution, context: &RouteContext) {
         self.max_index = context.num_routes();
         self.matrix.resize(self.max_index as usize, Vec::new());
         self.route_index_mappings.resize(self.max_index as usize, 0);
@@ -154,7 +154,7 @@ impl<T: Clone + Default + 'static> Cache for InterRouteCache<T> {
             self.route_index_mappings[src_route_index as usize];
     }
 
-    fn save(&mut self, _solution: &dyn VrpSolution, _context: &RouteContext) {
+    fn save(&mut self, _solution: &AlkaidSolution, _context: &RouteContext) {
         // No-op for this cache type
     }
 

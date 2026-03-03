@@ -5,7 +5,7 @@
 
 use crate::instance::Node;
 use crate::route_context::RouteContext;
-use crate::solution::VrpSolution;
+use crate::solution::AlkaidSolution;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 /// Caches must support resetting, adding/removing routes, and saving state.
 pub trait Cache: Any {
     /// Resets the cache based on the current solution state.
-    fn reset(&mut self, solution: &dyn VrpSolution, context: &RouteContext);
+    fn reset(&mut self, solution: &AlkaidSolution, context: &RouteContext);
 
     /// Called when a new route is added.
     fn add_route(&mut self, route_index: Node);
@@ -26,7 +26,7 @@ pub trait Cache: Any {
     fn move_route(&mut self, dest_route_index: Node, src_route_index: Node);
 
     /// Saves the current state for later comparison.
-    fn save(&mut self, solution: &dyn VrpSolution, context: &RouteContext);
+    fn save(&mut self, solution: &AlkaidSolution, context: &RouteContext);
 
     /// Required for downcasting.
     fn as_any(&self) -> &dyn Any;
@@ -57,7 +57,7 @@ impl CacheMap {
     /// * `T` - The cache type (must implement Cache + Default)
     pub fn get<T: Cache + Default + 'static>(
         &mut self,
-        solution: &dyn VrpSolution,
+        solution: &AlkaidSolution,
         context: &RouteContext,
     ) -> &mut T {
         let type_id = TypeId::of::<T>();
@@ -87,7 +87,7 @@ impl CacheMap {
     /// Panics if T1 and T2 are the same type.
     pub fn get2_mut<T1: Cache + Default + 'static, T2: Cache + Default + 'static>(
         &mut self,
-        solution: &dyn VrpSolution,
+        solution: &AlkaidSolution,
         context: &RouteContext,
     ) -> (&mut T1, &mut T2) {
         let type_id1 = TypeId::of::<T1>();
@@ -120,7 +120,7 @@ impl CacheMap {
     }
 
     /// Resets all caches.
-    pub fn reset(&mut self, solution: &dyn VrpSolution, context: &RouteContext) {
+    pub fn reset(&mut self, solution: &AlkaidSolution, context: &RouteContext) {
         for cache in self.caches.values_mut() {
             cache.reset(solution, context);
         }
@@ -148,7 +148,7 @@ impl CacheMap {
     }
 
     /// Saves state in all caches.
-    pub fn save(&mut self, solution: &dyn VrpSolution, context: &RouteContext) {
+    pub fn save(&mut self, solution: &AlkaidSolution, context: &RouteContext) {
         for cache in self.caches.values_mut() {
             cache.save(solution, context);
         }
@@ -158,7 +158,6 @@ impl CacheMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solution::AlkaidSolution;
 
     #[derive(Default)]
     struct TestCache {
@@ -166,13 +165,13 @@ mod tests {
     }
 
     impl Cache for TestCache {
-        fn reset(&mut self, _: &dyn VrpSolution, _: &RouteContext) {
+        fn reset(&mut self, _: &AlkaidSolution, _: &RouteContext) {
             self.reset_count += 1;
         }
         fn add_route(&mut self, _: Node) {}
         fn remove_route(&mut self, _: Node) {}
         fn move_route(&mut self, _: Node, _: Node) {}
-        fn save(&mut self, _: &dyn VrpSolution, _: &RouteContext) {}
+        fn save(&mut self, _: &AlkaidSolution, _: &RouteContext) {}
         fn as_any(&self) -> &dyn Any { self }
         fn as_any_mut(&mut self) -> &mut dyn Any { self }
     }

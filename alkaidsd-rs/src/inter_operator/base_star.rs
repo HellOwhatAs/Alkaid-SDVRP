@@ -8,7 +8,7 @@ use crate::delta::Delta;
 use crate::instance::{Instance, Node};
 use crate::random::Random;
 use crate::route_context::RouteContext;
-use crate::solution::VrpSolution;
+use crate::solution::AlkaidSolution;
 use std::any::Any;
 
 /// A single insertion position with its delta.
@@ -132,7 +132,7 @@ impl StarCaches {
     pub fn preprocess(
         &mut self,
         instance: &Instance,
-        solution: &dyn VrpSolution,
+        solution: &AlkaidSolution,
         context: &RouteContext,
         route: Node,
         random: &mut Random,
@@ -189,7 +189,7 @@ impl StarCaches {
 }
 
 impl Cache for StarCaches {
-    fn reset(&mut self, solution: &dyn VrpSolution, context: &RouteContext) {
+    fn reset(&mut self, solution: &AlkaidSolution, context: &RouteContext) {
         self.caches.resize(context.num_routes() as usize, Vec::new());
 
         for route_index in 0..self.caches.len().min(self.routes.len()) as Node {
@@ -239,7 +239,7 @@ impl Cache for StarCaches {
         self.caches[dest_route_index as usize] = src;
     }
 
-    fn save(&mut self, solution: &dyn VrpSolution, context: &RouteContext) {
+    fn save(&mut self, solution: &AlkaidSolution, context: &RouteContext) {
         self.routes.resize(context.num_routes() as usize, Vec::new());
 
         for route_index in 0..self.routes.len() as Node {
