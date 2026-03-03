@@ -5,7 +5,7 @@
 //! for route properties during optimization.
 
 use crate::instance::Node;
-use crate::solution::AlkaidSolution;
+use crate::solution::VrpSolution;
 
 /// Metadata for a single route.
 #[derive(Debug, Clone, Default)]
@@ -144,7 +144,7 @@ impl RouteContext {
     /// # Arguments
     ///
     /// * `solution` - The solution to analyze
-    pub fn calc_route_context(&mut self, solution: &AlkaidSolution) {
+    pub fn calc_route_context(&mut self, solution: &impl VrpSolution) {
         self.routes.clear();
 
         // Find all route heads (nodes with predecessor = depot)
@@ -178,7 +178,7 @@ impl RouteContext {
     /// * `solution` - The solution
     /// * `route_index` - Index of the route to update
     /// * `predecessor` - Node to start updating from (0 for route start)
-    pub fn update_route_context(&mut self, solution: &AlkaidSolution, route_index: Node, predecessor: Node) {
+    pub fn update_route_context(&mut self, solution: &impl VrpSolution, route_index: Node, predecessor: Node) {
         // Ensure pre_loads is large enough
         let required_size = (solution.max_node_index() + 1) as usize;
         if self.pre_loads.len() < required_size {
@@ -228,6 +228,7 @@ impl RouteContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solution::AlkaidSolution;
 
     #[test]
     fn test_route_context_basic() {
