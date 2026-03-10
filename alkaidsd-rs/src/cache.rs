@@ -76,6 +76,49 @@ impl CacheMap {
             .unwrap()
     }
 
+    /// Gets or creates two caches of different types simultaneously.
+    ///
+    /// This is needed when operators require access to both an InterRouteCache
+    /// and a StarCaches at the same time (matching C++ behavior where both are
+    /// held as references simultaneously).
+    ///
+    /// # Panics
+    ///
+    /// Panics if T1 and T2 are the same type.
+    pub fn get2_mut<T1: Cache + Default + 'static, T2: Cache + Default + 'static>(
+        &mut self,
+        solution: &AlkaidSolution,
+        context: &RouteContext,
+    ) -> (&mut T1, &mut T2) {
+        let type_id1 = TypeId::of::<T1>();
+        let type_id2 = TypeId::of::<T2>();
+        assert_ne!(type_id1, type_id2, "get2_mut requires two different types");
+
+        // Ensure both entries exist
+        self.caches.entry(type_id1).or_insert_with(|| {
+            let mut cache = Box::new(T1::default());
+            cache.reset(solution, context);
+            cache
+        });
+        self.caches.entry(type_id2).or_insert_with(|| {
+            let mut cache = Box::new(T2::default());
+            cache.reset(solution, context);
+            cache
+        });
+
+        // SAFETY: We have verified type_id1 != type_id2, so these are distinct HashMap entries.
+        // Getting two mutable references to different entries is safe because they point to
+        // non-overlapping memory. CacheMap is not thread-safe and must only be used from a
+        // single thread (which matches its usage in the single-threaded solver loop).
+        let ptr1 = self.caches.get_mut(&type_id1).unwrap() as *mut Box<dyn Cache>;
+        let ptr2 = self.caches.get_mut(&type_id2).unwrap() as *mut Box<dyn Cache>;
+        unsafe {
+            let ref1 = (*ptr1).as_any_mut().downcast_mut::<T1>().unwrap();
+            let ref2 = (*ptr2).as_any_mut().downcast_mut::<T2>().unwrap();
+            (ref1, ref2)
+        }
+    }
+
     /// Resets all caches.
     pub fn reset(&mut self, solution: &AlkaidSolution, context: &RouteContext) {
         for cache in self.caches.values_mut() {

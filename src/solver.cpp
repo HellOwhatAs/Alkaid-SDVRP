@@ -37,6 +37,7 @@ namespace alkaidsd {
   void RandomizedVariableNeighborhoodDescent(const Instance &instance, const AlkaidConfig &config,
                                              AlkaidSolution &solution, RouteContext &context,
                                              Random &random, CacheMap &cache_map) {
+    bool debug = std::getenv("ALKAID_DEBUG") != nullptr;
     cache_map.Reset(solution, context);
     for (int i = 0; i < 5000; ++i) {  // TODO: improved?
       std::vector<int> inter_neighborhoods(config.inter_operators.size());
@@ -45,8 +46,21 @@ namespace alkaidsd {
       bool improved = false;
       for (int neighborhood : inter_neighborhoods) {
         Node original_num_routes = context.NumRoutes();
+        if (debug) {
+          auto s = random.State();
+          fprintf(stderr, "CPP    rvnd_iter=%d before_op=%d rng=[%u,%u,%u,%u]\n", i, neighborhood, s[0], s[1], s[2], s[3]);
+        }
         auto routes = (*config.inter_operators[neighborhood])(instance, solution, context, random,
                                                               cache_map);
+        if (debug) {
+          auto s = random.State();
+          fprintf(stderr, "CPP    rvnd_iter=%d after_op=%d routes=[", i, neighborhood);
+          for (size_t ri = 0; ri < routes.size(); ri++) {
+            if (ri > 0) fprintf(stderr, ", ");
+            fprintf(stderr, "%d", routes[ri]);
+          }
+          fprintf(stderr, "] rng=[%u,%u,%u,%u]\n", s[0], s[1], s[2], s[3]);
+        }
         if (!routes.empty()) {
           std::sort(routes.begin(), routes.end());
           improved = true;
@@ -88,9 +102,28 @@ namespace alkaidsd {
 
   void Perturb(const Instance &instance, const AlkaidConfig &config, AlkaidSolution &solution,
                RouteContext &context, Random &random) {
+    bool debug = std::getenv("ALKAID_DEBUG") != nullptr;
     context.CalcRouteContext(solution);
     std::vector<Node> customers = config.ruin_method->Ruin(instance, solution, context, random);
+    if (debug) {
+      auto s = random.State();
+      fprintf(stderr, "CPP      after_ruin customers=[");
+      for (size_t ci = 0; ci < customers.size(); ci++) {
+        if (ci > 0) fprintf(stderr, ", ");
+        fprintf(stderr, "%d", customers[ci]);
+      }
+      fprintf(stderr, "] rng=[%u,%u,%u,%u]\n", s[0], s[1], s[2], s[3]);
+    }
     config.sorter.Sort(instance, customers, random);
+    if (debug) {
+      auto s = random.State();
+      fprintf(stderr, "CPP      after_sort customers=[");
+      for (size_t ci = 0; ci < customers.size(); ci++) {
+        if (ci > 0) fprintf(stderr, ", ");
+        fprintf(stderr, "%d", customers[ci]);
+      }
+      fprintf(stderr, "] rng=[%u,%u,%u,%u]\n", s[0], s[1], s[2], s[3]);
+    }
     for (Node customer : customers) {
       for (Node route_index = 0; route_index < context.NumRoutes(); ++route_index) {
         Node node_index = context.Head(route_index);
@@ -121,6 +154,7 @@ namespace alkaidsd {
   }
 
   AlkaidSolution AlkaidSolver::Solve(const AlkaidConfig &config, const Instance &instance) {
+    bool debug = std::getenv("ALKAID_DEBUG") != nullptr;
     if (config.listener != nullptr) {
       config.listener->OnStart();
     }
@@ -139,15 +173,28 @@ namespace alkaidsd {
       auto new_solution = solution;
       auto acceptance_rule = config.acceptance_rule();
       int num_stagnation = 0;
+      if (debug) {
+        auto s = random.State();
+        fprintf(stderr, "CPP  construct obj=%d rng=[%u,%u,%u,%u]\n", objective, s[0], s[1], s[2], s[3]);
+      }
       while (num_stagnation < kMaxStagnation && ElapsedTime(start_time) < config.time_limit) {
         ++num_stagnation;
         context.CalcRouteContext(new_solution);
         for (Node i = 0; i < context.NumRoutes(); ++i) {
           IntraRouteSearch(instance, config, i, new_solution, context, random);
         }
+        if (debug) {
+          auto s = random.State();
+          int obj = new_solution.CalcObjective(instance);
+          fprintf(stderr, "CPP  after_intra obj=%d rng=[%u,%u,%u,%u]\n", obj, s[0], s[1], s[2], s[3]);
+        }
         RandomizedVariableNeighborhoodDescent(instance, config, new_solution, context, random,
                                               cache_map);
         int new_objective = new_solution.CalcObjective(instance);
+        if (debug) {
+          auto s = random.State();
+          fprintf(stderr, "CPP  after_rvnd obj=%d rng=[%u,%u,%u,%u]\n", new_objective, s[0], s[1], s[2], s[3]);
+        }
         if (new_objective < iter_best_objective) {
           num_stagnation = 0;
           iter_best_objective = new_objective;
@@ -165,7 +212,16 @@ namespace alkaidsd {
         } else {
           new_solution = solution;
         }
+        if (debug) {
+          auto s = random.State();
+          fprintf(stderr, "CPP  after_accept rng=[%u,%u,%u,%u]\n", s[0], s[1], s[2], s[3]);
+        }
         Perturb(instance, config, new_solution, context, random);
+        if (debug) {
+          auto s = random.State();
+          int obj = new_solution.CalcObjective(instance);
+          fprintf(stderr, "CPP  after_perturb obj=%d rng=[%u,%u,%u,%u]\n", obj, s[0], s[1], s[2], s[3]);
+        }
       }
     }
     if (config.listener != nullptr) {

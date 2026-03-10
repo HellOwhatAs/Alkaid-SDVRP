@@ -6,6 +6,7 @@ use alkaidsd::acceptance_rule::{
     AcceptanceRule, HillClimbing, HillClimbingWithEqual, LateAcceptanceHillClimbing,
     SimulatedAnnealing,
 };
+use alkaidsd::distance_matrix_optimizer::DistanceMatrixOptimizer;
 use alkaidsd::inter_operator::{
     Cross, InterOperator, Relocate, SdSwapOneOne, SdSwapStar, SdSwapTwoOne, Swap, SwapStar,
 };
@@ -64,9 +65,7 @@ fn read_instance(path: &Path) -> Result<Instance, String> {
         return Err("Invalid format: first line should contain num_customers and capacity".into());
     }
 
-    let num_customers: Node = parts[0]
-        .parse()
-        .map_err(|_| "Invalid num_customers")?;
+    let num_customers: Node = parts[0].parse().map_err(|_| "Invalid num_customers")?;
     let num_customers = num_customers + 1; // Add depot
     let capacity: i32 = parts[1].parse().map_err(|_| "Invalid capacity")?;
 
@@ -108,7 +107,8 @@ fn read_instance(path: &Path) -> Result<Instance, String> {
     }
 
     // Build distance matrix
-    let mut distance_matrix: Vec<Vec<i32>> = vec![vec![0; num_customers as usize]; num_customers as usize];
+    let mut distance_matrix: Vec<Vec<i32>> =
+        vec![vec![0; num_customers as usize]; num_customers as usize];
     for i in 0..num_customers as usize {
         for j in 0..num_customers as usize {
             let (x1, y1) = coords[i];
@@ -119,7 +119,12 @@ fn read_instance(path: &Path) -> Result<Instance, String> {
         }
     }
 
-    Ok(Instance::new(num_customers, capacity, demands, distance_matrix))
+    Ok(Instance::new(
+        num_customers,
+        capacity,
+        demands,
+        distance_matrix,
+    ))
 }
 
 /// Parse command-line arguments
@@ -144,12 +149,12 @@ fn parse_string_list(s: &str) -> Vec<String> {
     // Handles items with commas inside angle brackets like "Swap<2, 0>"
     let s = s.trim();
     if s.starts_with('[') && s.ends_with(']') {
-        let inner = &s[1..s.len()-1];
+        let inner = &s[1..s.len() - 1];
         let mut result = Vec::new();
         let mut current = String::new();
         let mut angle_depth = 0;
         let mut in_quotes = false;
-        
+
         for ch in inner.chars() {
             match ch {
                 '"' => {
@@ -175,13 +180,13 @@ fn parse_string_list(s: &str) -> Vec<String> {
                 }
             }
         }
-        
+
         // Don't forget the last item
         let item = current.trim().trim_matches('"').to_string();
         if !item.is_empty() {
             result.push(item);
         }
-        
+
         result
     } else {
         vec![s.to_string()]
@@ -191,7 +196,7 @@ fn parse_string_list(s: &str) -> Vec<String> {
 fn parse_args() -> Result<Args, String> {
     let args: Vec<String> = env::args().collect();
     let mut result = Args::default();
-    
+
     // Default values
     result.random_seed = 42;
     result.time_limit = 10.0;
@@ -202,7 +207,7 @@ fn parse_args() -> Result<Args, String> {
     let mut i = 1;
     while i < args.len() {
         let arg = &args[i];
-        
+
         // Handle --config=file or --config file
         if arg.starts_with("--config=") {
             let config_path = &arg[9..];
@@ -236,31 +241,31 @@ fn parse_args() -> Result<Args, String> {
             i += 1;
             result.blink_rate = args[i].parse().map_err(|_| "Invalid blink-rate")?;
         }
-        
+
         i += 1;
     }
-    
+
     Ok(result)
 }
 
 fn parse_config_file(path: &str, args: &mut Args) -> Result<(), String> {
     let file = File::open(path).map_err(|e| format!("Cannot open config file: {}", e))?;
     let reader = BufReader::new(file);
-    
+
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Read error: {}", e))?;
         let line = line.trim();
-        
+
         // Skip comments and empty lines
         if line.is_empty() || line.starts_with(';') {
             continue;
         }
-        
+
         // Parse key = value
         if let Some(pos) = line.find('=') {
             let key = line[..pos].trim();
-            let value = line[pos+1..].trim();
-            
+            let value = line[pos + 1..].trim();
+
             match key {
                 "input" => args.input = value.to_string(),
                 "output" => args.output = value.to_string(),
@@ -269,7 +274,9 @@ fn parse_config_file(path: &str, args: &mut Args) -> Result<(), String> {
                 "blink-rate" => args.blink_rate = value.parse().unwrap_or(0.021),
                 "inter-operators" => args.inter_operators = parse_string_list(value),
                 "intra-operators" => args.intra_operators = parse_string_list(value),
-                "acceptance-rule-type" => args.acceptance_rule_type = value.trim_matches('"').to_string(),
+                "acceptance-rule-type" => {
+                    args.acceptance_rule_type = value.trim_matches('"').to_string()
+                }
                 "acceptance-rule-args" => args.acceptance_rule_args = parse_string_list(value),
                 "ruin-method-type" => args.ruin_method_type = value.trim_matches('"').to_string(),
                 "ruin-method-args" => args.ruin_method_args = parse_string_list(value),
@@ -278,7 +285,7 @@ fn parse_config_file(path: &str, args: &mut Args) -> Result<(), String> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -294,7 +301,7 @@ fn parse_key_value(s: &str) -> Option<(String, f64)> {
 
 fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator>> {
     let mut ops: Vec<Box<dyn InterOperator>> = Vec::new();
-    
+
     for name in names {
         match name.as_str() {
             "Relocate" => ops.push(Box::new(Relocate)),
@@ -309,7 +316,7 @@ fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator>> {
             _ => eprintln!("Unknown inter-operator: {}", name),
         }
     }
-    
+
     // Default operators if none specified
     if ops.is_empty() {
         ops.push(Box::new(Relocate));
@@ -320,13 +327,13 @@ fn build_inter_operators(names: &[String]) -> Vec<Box<dyn InterOperator>> {
         ops.push(Box::new(SwapStar));
         ops.push(Box::new(SdSwapStar));
     }
-    
+
     ops
 }
 
 fn build_intra_operators(names: &[String]) -> Vec<Box<dyn IntraOperator>> {
     let mut ops: Vec<Box<dyn IntraOperator>> = Vec::new();
-    
+
     for name in names {
         match name.as_str() {
             "Exchange" => ops.push(Box::new(Exchange)),
@@ -336,13 +343,13 @@ fn build_intra_operators(names: &[String]) -> Vec<Box<dyn IntraOperator>> {
             _ => eprintln!("Unknown intra-operator: {}", name),
         }
     }
-    
+
     // Default operators if none specified
     if ops.is_empty() {
         ops.push(Box::new(Exchange));
         ops.push(Box::new(OrOpt::<1>::default()));
     }
-    
+
     ops
 }
 
@@ -356,7 +363,7 @@ fn build_acceptance_rule(
             params.insert(k, v);
         }
     }
-    
+
     match rule_type {
         "LAHC" => {
             let length = params.get("length").copied().unwrap_or(83.0) as usize;
@@ -379,19 +386,25 @@ fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod> 
             params.insert(k, v);
         }
     }
-    
+
     match method_type {
         "SISRs" => {
             let avg_customers = params.get("average_customers").copied().unwrap_or(36.0) as i32;
             let max_length = params.get("max_length").copied().unwrap_or(8.0) as i32;
             let split_rate = params.get("split_rate").copied().unwrap_or(0.74);
-            let preserved_prob = params.get("preserved_probability").copied().unwrap_or(0.096);
-            Box::new(SisrsRuin::new(avg_customers, max_length, split_rate, preserved_prob))
+            let preserved_prob = params
+                .get("preserved_probability")
+                .copied()
+                .unwrap_or(0.096);
+            Box::new(SisrsRuin::new(
+                avg_customers,
+                max_length,
+                split_rate,
+                preserved_prob,
+            ))
         }
         "Random" => {
-            let sizes: Vec<i32> = args.iter()
-                .filter_map(|s| s.parse().ok())
-                .collect();
+            let sizes: Vec<i32> = args.iter().filter_map(|s| s.parse().ok()).collect();
             if sizes.is_empty() {
                 Box::new(RandomRuin::new(vec![3, 5, 7]))
             } else {
@@ -404,27 +417,34 @@ fn build_ruin_method(method_type: &str, args: &[String]) -> Box<dyn RuinMethod> 
 
 fn build_sorter(sorter_args: &[String]) -> Sorter {
     let mut sorter = Sorter::new();
-    
+
+    // Parse key-value pairs and sort by key name to match C++ std::map ordering
+    let mut parsed: Vec<(String, f64)> = Vec::new();
     for arg in sorter_args {
         if let Some((name, weight)) = parse_key_value(arg) {
-            match name.as_str() {
-                "random" => sorter.add_sort_function(Box::new(SortByRandom), weight),
-                "demand" => sorter.add_sort_function(Box::new(SortByDemand), weight),
-                "far" => sorter.add_sort_function(Box::new(SortByFar), weight),
-                "close" => sorter.add_sort_function(Box::new(SortByClose), weight),
-                _ => eprintln!("Unknown sorter: {}", name),
-            }
+            parsed.push((name, weight));
         }
     }
-    
+    parsed.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (name, weight) in &parsed {
+        match name.as_str() {
+            "random" => sorter.add_sort_function(Box::new(SortByRandom), *weight),
+            "demand" => sorter.add_sort_function(Box::new(SortByDemand), *weight),
+            "far" => sorter.add_sort_function(Box::new(SortByFar), *weight),
+            "close" => sorter.add_sort_function(Box::new(SortByClose), *weight),
+            _ => eprintln!("Unknown sorter: {}", name),
+        }
+    }
+
     // Default sorter if none specified
     if sorter_args.is_empty() {
-        sorter.add_sort_function(Box::new(SortByRandom), 0.078);
+        sorter.add_sort_function(Box::new(SortByClose), 0.120);
         sorter.add_sort_function(Box::new(SortByDemand), 0.225);
         sorter.add_sort_function(Box::new(SortByFar), 0.942);
-        sorter.add_sort_function(Box::new(SortByClose), 0.120);
+        sorter.add_sort_function(Box::new(SortByRandom), 0.078);
     }
-    
+
     sorter
 }
 
@@ -436,43 +456,54 @@ fn main() {
             std::process::exit(1);
         }
     };
-    
+
     if args.input.is_empty() {
         eprintln!("Error: --input is required");
         std::process::exit(1);
     }
-    
+
     if args.output.is_empty() {
         eprintln!("Error: --output is required");
         std::process::exit(1);
     }
-    
+
     // Read instance
-    let instance = match read_instance(Path::new(&args.input)) {
+    let mut instance = match read_instance(Path::new(&args.input)) {
         Ok(instance) => instance,
         Err(e) => {
             eprintln!("Error reading instance: {}", e);
             std::process::exit(1);
         }
     };
-    
+
+    // Optimize distance matrix using Floyd-Warshall (same as C++ implementation)
+    let optimizer = DistanceMatrixOptimizer::new(&mut instance.distance_matrix);
+
     // Build configuration
     let mut config = AlkaidConfig {
         random_seed: args.random_seed,
+        max_stagnation: 5000,
         time_limit: args.time_limit,
         blink_rate: args.blink_rate,
         inter_operators: build_inter_operators(&args.inter_operators),
         intra_operators: build_intra_operators(&args.intra_operators),
-        acceptance_rule: build_acceptance_rule(&args.acceptance_rule_type, &args.acceptance_rule_args),
+        acceptance_rule: build_acceptance_rule(
+            &args.acceptance_rule_type,
+            &args.acceptance_rule_args,
+        ),
         ruin_method: build_ruin_method(&args.ruin_method_type, &args.ruin_method_args),
         sorter: build_sorter(&args.sorters),
         listener: Some(Box::new(SimpleListener::new())),
     };
-    
+
     // Solve
     let solver = AlkaidSolver::default();
     let solution = solver.solve(&mut config, &instance);
-    
+
+    // Restore intermediate nodes from Floyd-Warshall optimization
+    let mut solution = solution;
+    optimizer.restore(&mut solution);
+
     // Write output
     if let Ok(mut file) = File::create(&args.output) {
         let _ = writeln!(file, "Objective: {}", solution.calc_objective(&instance));

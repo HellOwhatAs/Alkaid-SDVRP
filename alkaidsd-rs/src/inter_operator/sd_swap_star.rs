@@ -91,23 +91,22 @@ impl SdSwapStar {
         }
         
         // Find best insertion for node_y using star cache
-        if let Some(best_insertion_y) = insertion_y.find_best() {
-            let total_delta = delta + delta_x + best_insertion_y.delta.value;
+        let best_insertion_y = insertion_y.find_best();
+        let total_delta = delta + delta_x + best_insertion_y.delta.value;
             
-            if cache.delta.update(total_delta, random) {
-                cache.mv = SdSwapStarMove {
-                    swapped,
-                    route_x,
-                    route_y,
-                    node_x,
-                    predecessor_y,
-                    successor_y,
-                    node_y,
-                    predecessor_x: best_insertion_y.predecessor,
-                    successor_x: best_insertion_y.successor,
-                    split_load,
-                };
-            }
+        if cache.delta.update(total_delta, random) {
+            cache.mv = SdSwapStarMove {
+                swapped,
+                route_x,
+                route_y,
+                node_x,
+                predecessor_y,
+                successor_y,
+                node_y,
+                predecessor_x: best_insertion_y.predecessor,
+                successor_x: best_insertion_y.successor,
+                split_load,
+            };
         }
     }
 
@@ -160,73 +159,31 @@ impl InterOperator for SdSwapStar {
         random: &mut Random,
         cache_map: &mut CacheMap,
     ) -> Vec<Node> {
+        let (caches, star_caches) = cache_map
+            .get2_mut::<InterRouteCache<SdSwapStarMove>, StarCaches>(solution, context);
         let mut best_move = SdSwapStarMove::default();
         let mut best_delta = Delta::default();
-        let num_routes = context.num_routes();
-        
-        // Phase 1: Check caches and identify pairs to recompute
-        let mut pairs_to_recompute: Vec<(Node, Node)> = Vec::new();
-        {
-            let caches: &mut InterRouteCache<SdSwapStarMove> = cache_map.get(solution, context);
-            for route_x in 0..num_routes {
-                for route_y in (route_x + 1)..num_routes {
-                    let cache = caches.get(route_x, route_y);
-                    if !cache.try_reuse() {
-                        pairs_to_recompute.push((route_x, route_y));
-                    } else {
-                        // Reusing cached move, update route indices based on swapped flag
-                        if !cache.mv.swapped {
-                            cache.mv.route_x = route_x;
-                            cache.mv.route_y = route_y;
-                        } else {
-                            cache.mv.route_x = route_y;
-                            cache.mv.route_y = route_x;
-                        }
-                        // Check if this cached result is the best so far
-                        if best_delta.update_from(&cache.delta, random) {
-                            best_move = cache.mv.clone();
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Phase 2: Preprocess and compute all pairs that need it
-        if !pairs_to_recompute.is_empty() {
-            // Preprocess routes
-            {
-                let star_caches: &mut StarCaches = cache_map.get(solution, context);
-                for &(route_x, route_y) in &pairs_to_recompute {
+
+        for route_x in 0..context.num_routes() {
+            for route_y in (route_x + 1)..context.num_routes() {
+                let cache = caches.get(route_x, route_y);
+                if !cache.try_reuse() {
                     star_caches.preprocess(instance, solution, context, route_x, random);
                     star_caches.preprocess(instance, solution, context, route_y, random);
-                }
-            }
-            
-            // Compute all pairs with a single borrow of star_caches
-            let mut computed_results: Vec<(Node, Node, Delta<i32>, SdSwapStarMove)> = 
-                Vec::with_capacity(pairs_to_recompute.len());
-            {
-                let star_caches: &StarCaches = cache_map.get(solution, context);
-                for &(route_x, route_y) in &pairs_to_recompute {
-                    let mut local_cache = BaseCache::<SdSwapStarMove>::default();
                     Self::sd_swap_star_inner(
-                        instance, solution, context, route_x, route_y, &mut local_cache, star_caches, random,
+                        instance, solution, context, route_x, route_y, cache, star_caches, random,
                     );
-                    computed_results.push((route_x, route_y, local_cache.delta, local_cache.mv));
-                }
-            }
-            
-            // Write back results with a single borrow of caches
-            {
-                let caches: &mut InterRouteCache<SdSwapStarMove> = cache_map.get(solution, context);
-                for (route_x, route_y, delta, mv) in computed_results {
-                    let cache = caches.get(route_x, route_y);
-                    cache.delta = delta;
-                    cache.mv = mv;
-                    
-                    if best_delta.update_from(&cache.delta, random) {
-                        best_move = cache.mv.clone();
+                } else {
+                    if !cache.mv.swapped {
+                        cache.mv.route_x = route_x;
+                        cache.mv.route_y = route_y;
+                    } else {
+                        cache.mv.route_x = route_y;
+                        cache.mv.route_y = route_x;
                     }
+                }
+                if best_delta.update_from(&cache.delta, random) {
+                    best_move = cache.mv.clone();
                 }
             }
         }

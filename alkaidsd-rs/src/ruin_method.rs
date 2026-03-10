@@ -204,9 +204,9 @@ impl RuinMethod for SisrsRuin {
             let mut num_preserved = 0;
             let mut preserved_start_position = -1i32;
 
-            if ruin_length >= 2 && ruin_length < route_length && random.next_float() < self.split_rate as f32 {
+            if ruin_length >= 2 && ruin_length < route_length && (random.next_float() as f64) < self.split_rate {
                 while ruin_length < route_length {
-                    if random.next_float() < self.preserved_probability as f32 {
+                    if (random.next_float() as f64) < self.preserved_probability {
                         break;
                     }
                     num_preserved += 1;

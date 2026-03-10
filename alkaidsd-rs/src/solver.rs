@@ -53,6 +53,9 @@ pub struct AlkaidConfig {
     /// Random seed for reproducibility
     pub random_seed: u32,
 
+    /// Maximum number of iterations without improvement before termination
+    pub max_stagnation: i32,
+
     /// Time limit in seconds
     pub time_limit: f64,
 
@@ -96,7 +99,7 @@ impl AlkaidSolver {
 
         let mut neighborhoods: Vec<usize> = (0..config.intra_operators.len()).collect();
 
-        for _ in 0..5000 {
+        loop {
             random.shuffle(&mut neighborhoods);
 
             let mut improved = false;
@@ -130,7 +133,7 @@ impl AlkaidSolver {
     ) {
         cache_map.reset(solution, context);
 
-        for _ in 0..5000 {
+        loop {
             let mut neighborhoods: Vec<usize> = (0..config.inter_operators.len()).collect();
             random.shuffle(&mut neighborhoods);
 
@@ -139,13 +142,8 @@ impl AlkaidSolver {
             for &neighborhood in &neighborhoods {
                 let original_num_routes = context.num_routes();
 
-                let routes = config.inter_operators[neighborhood].apply(
-                    instance,
-                    solution,
-                    context,
-                    random,
-                    cache_map,
-                );
+                let routes = config.inter_operators[neighborhood]
+                    .apply(instance, solution, context, random, cache_map);
 
                 if !routes.is_empty() {
                     let mut routes = routes;
@@ -176,8 +174,6 @@ impl AlkaidSolver {
 
                     // Re-add modified routes
                     for head in heads {
-                        // Ensure routes vector is large enough to accommodate route at index num_routes.
-                        // We need num_routes + 1 total slots (0 through num_routes inclusive).
                         let required_capacity = (num_routes + 1) as usize;
                         if required_capacity > context.num_routes() as usize {
                             context.set_num_routes(num_routes + 1);
@@ -269,9 +265,9 @@ impl AlkaidSolver {
         let mut best_objective = i32::MAX;
 
         let start_time = Instant::now();
-        let max_stagnation = 5000.min(
-            (instance.num_customers as i32) * (calc_fleet_lower_bound(instance) as i32),
-        );
+        let max_stagnation = config
+            .max_stagnation
+            .min((instance.num_customers as i32) * (calc_fleet_lower_bound(instance) as i32));
 
         while start_time.elapsed().as_secs_f64() < config.time_limit {
             // Construct initial solution
@@ -291,13 +287,23 @@ impl AlkaidSolver {
                 context.calc_route_context(&new_solution);
                 for i in 0..context.num_routes() {
                     Self::intra_route_search(
-                        instance, config, i, &mut new_solution, &mut context, &mut random,
+                        instance,
+                        config,
+                        i,
+                        &mut new_solution,
+                        &mut context,
+                        &mut random,
                     );
                 }
 
                 // Inter-route search
                 Self::randomized_variable_neighborhood_descent(
-                    instance, config, &mut new_solution, &mut context, &mut random, &mut cache_map,
+                    instance,
+                    config,
+                    &mut new_solution,
+                    &mut context,
+                    &mut random,
+                    &mut cache_map,
                 );
 
                 let new_objective = new_solution.calc_objective(instance);
@@ -361,11 +367,7 @@ mod tests {
             num_customers: 3,
             capacity: 100,
             demands: vec![0, 50, 30],
-            distance_matrix: vec![
-                vec![0, 10, 20],
-                vec![10, 0, 15],
-                vec![20, 15, 0],
-            ],
+            distance_matrix: vec![vec![0, 10, 20], vec![10, 0, 15], vec![20, 15, 0]],
         };
 
         let mut sorter = Sorter::new();
@@ -373,6 +375,7 @@ mod tests {
 
         let mut config = AlkaidConfig {
             random_seed: 42,
+            max_stagnation: 5000,
             time_limit: 0.1, // Short time limit for test
             blink_rate: 0.01,
             inter_operators: vec![Box::new(SwapStar)],

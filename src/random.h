@@ -14,6 +14,8 @@ namespace alkaidsd {
       }
     }
 
+    const uint32_t* State() const { return s; }
+
     int NextInt(int a, int b) { return static_cast<int>(NextInt(b - a + 1)) + a; }
 
     float NextFloat() { return (NextInt() >> 8u) * kFloatMultiplier; }

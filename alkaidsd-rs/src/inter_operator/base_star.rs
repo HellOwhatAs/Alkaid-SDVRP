@@ -79,27 +79,26 @@ impl<const N: usize> BestInsertion<N> {
                 return;
             } else if delta == self.insertions[i].delta.value && self.insertions[i].delta.counter != -1 {
                 // Equal value - use reservoir sampling
-                self.insertions[i].delta.counter += 1;
-                if random.next_int(1, self.insertions[i].delta.counter) == 1 {
-                    // Shift down and insert
+                if random.next_int(1, self.insertions[i].delta.counter + 1) == 1 {
+                    // Selected: shift down and insert at position i
                     for j in (i + 1..N).rev() {
                         self.insertions[j] = self.insertions[j - 1].clone();
                     }
+                    self.insertions[i].delta.counter += 1;
                     self.insertions[i].predecessor = predecessor;
                     self.insertions[i].successor = successor;
+                    break;
+                } else {
+                    // Not selected: increment counter and continue to next position
+                    self.insertions[i].delta.counter += 1;
                 }
-                break;
             }
         }
     }
 
     /// Returns the best insertion.
-    pub fn find_best(&self) -> Option<&Insertion> {
-        if self.insertions[0].delta.counter > 0 {
-            Some(&self.insertions[0])
-        } else {
-            None
-        }
+    pub fn find_best(&self) -> &Insertion {
+        &self.insertions[0]
     }
 
     /// Returns the best insertion that doesn't involve a specific node.
@@ -159,19 +158,20 @@ impl StarCaches {
         // Compute insertion costs for each position
         let mut predecessor = 0;
         let mut successor = context.head(route);
+        let route_cache = &mut self.caches[route_idx];
 
         loop {
             let pred_customer = solution.customer(predecessor);
             let succ_customer = solution.customer(successor);
-            let pred_distances = &instance.distance_matrix[pred_customer as usize];
-            let succ_distances = &instance.distance_matrix[succ_customer as usize];
+            let pred_distances = unsafe { instance.distance_matrix.get_unchecked(pred_customer as usize) };
+            let succ_distances = unsafe { instance.distance_matrix.get_unchecked(succ_customer as usize) };
             let distance = instance.distance(pred_customer, succ_customer);
 
             for customer in 1..instance.num_customers {
-                let delta = pred_distances[customer as usize]
-                    + succ_distances[customer as usize]
+                let delta = unsafe { *pred_distances.get_unchecked(customer as usize) }
+                    + unsafe { *succ_distances.get_unchecked(customer as usize) }
                     - distance;
-                self.caches[route_idx][customer as usize].add(delta, predecessor, successor, random);
+                route_cache[customer as usize].add(delta, predecessor, successor, random);
             }
 
             if successor == 0 {

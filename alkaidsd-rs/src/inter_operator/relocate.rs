@@ -64,22 +64,21 @@ impl Relocate {
             // Check capacity constraint
             if context.load(route_y) + solution.load(node_x) <= instance.capacity {
                 // Use star cache to find best insertion position
-                if let Some(insertion) = star_caches.get(route_y, solution.customer(node_x)).find_best() {
-                    let predecessor_x = solution.predecessor(node_x);
-                    let successor_x = solution.successor(node_x);
+                let insertion = star_caches.get(route_y, solution.customer(node_x)).find_best();
+                let predecessor_x = solution.predecessor(node_x);
+                let successor_x = solution.successor(node_x);
                     
-                    let delta = insertion.delta.value
-                        - calc_delta(instance, solution, node_x, predecessor_x, successor_x);
+                let delta = insertion.delta.value
+                    - calc_delta(instance, solution, node_x, predecessor_x, successor_x);
                     
-                    if cache.delta.update(delta, random) {
-                        cache.mv = RelocateMove {
-                            route_x,
-                            route_y,
-                            node_x,
-                            predecessor_x: insertion.predecessor,
-                            successor_x: insertion.successor,
-                        };
-                    }
+                if cache.delta.update(delta, random) {
+                    cache.mv = RelocateMove {
+                        route_x,
+                        route_y,
+                        node_x,
+                        predecessor_x: insertion.predecessor,
+                        successor_x: insertion.successor,
+                    };
                 }
             }
             node_x = solution.successor(node_x);
@@ -96,71 +95,29 @@ impl InterOperator for Relocate {
         random: &mut Random,
         cache_map: &mut CacheMap,
     ) -> Vec<Node> {
+        let (caches, star_caches) = cache_map
+            .get2_mut::<InterRouteCache<RelocateMove>, StarCaches>(solution, context);
         let mut best_move = RelocateMove::default();
         let mut best_delta = Delta::default();
 
-        // Phase 1: Identify which route pairs need recomputation
-        let mut route_pairs: Vec<(Node, Node, bool)> = Vec::new();
-        {
-            let caches: &mut InterRouteCache<RelocateMove> = cache_map.get(solution, context);
-            for route_x in 0..context.num_routes() {
-                for route_y in 0..context.num_routes() {
-                    if route_x == route_y {
-                        continue;
-                    }
-                    let cache = caches.get(route_x, route_y);
-                    let needs_recompute = !cache.try_reuse();
-                    route_pairs.push((route_x, route_y, needs_recompute));
+        for route_x in 0..context.num_routes() {
+            for route_y in 0..context.num_routes() {
+                if route_x == route_y {
+                    continue;
                 }
-            }
-        }
-
-        // Phase 2: Preprocess star caches for all target routes that need it
-        {
-            let star_caches: &mut StarCaches = cache_map.get(solution, context);
-            for &(_route_x, route_y, needs_recompute) in &route_pairs {
-                if needs_recompute {
+                let cache = caches.get(route_x, route_y);
+                if !cache.try_reuse() {
                     star_caches.preprocess(instance, solution, context, route_y, random);
+                    Self::relocate_inner(
+                        instance, solution, context, route_x, route_y, cache, star_caches, random,
+                    );
+                } else {
+                    cache.mv.route_x = route_x;
+                    cache.mv.route_y = route_y;
                 }
-            }
-        }
-
-        // Phase 3: Process each route pair that needs recomputation
-        // Use local caches to avoid simultaneous borrows
-        let mut computed_results: Vec<(Node, Node, Delta<i32>, RelocateMove)> = Vec::new();
-        
-        for &(route_x, route_y, needs_recompute) in &route_pairs {
-            if needs_recompute {
-                let star_caches: &StarCaches = cache_map.get(solution, context);
-                
-                let mut local_cache = BaseCache::<RelocateMove>::default();
-                Self::relocate_inner(
-                    instance, solution, context, route_x, route_y, &mut local_cache, star_caches, random,
-                );
-                
-                computed_results.push((route_x, route_y, local_cache.delta, local_cache.mv));
-            }
-        }
-        
-        // Write back computed results
-        for (route_x, route_y, delta, mv) in computed_results {
-            let caches: &mut InterRouteCache<RelocateMove> = cache_map.get(solution, context);
-            let cache = caches.get(route_x, route_y);
-            cache.delta = delta;
-            cache.mv = mv;
-        }
-
-        // Phase 4: Collect best move
-        let caches: &mut InterRouteCache<RelocateMove> = cache_map.get(solution, context);
-        for (route_x, route_y, needs_recompute) in route_pairs {
-            let cache = caches.get(route_x, route_y);
-            if !needs_recompute {
-                // Reusing cached move, update route indices
-                cache.mv.route_x = route_x;
-                cache.mv.route_y = route_y;
-            }
-            if best_delta.update_from(&cache.delta, random) {
-                best_move = cache.mv.clone();
+                if best_delta.update_from(&cache.delta, random) {
+                    best_move = cache.mv.clone();
+                }
             }
         }
 

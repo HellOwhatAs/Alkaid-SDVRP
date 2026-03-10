@@ -101,7 +101,7 @@ impl AlkaidSolution {
     /// The predecessor node index (0 = depot/start of route)
     #[inline]
     pub fn predecessor(&self, node_index: Node) -> Node {
-        self.node_data[node_index as usize].predecessor
+        unsafe { self.node_data.get_unchecked(node_index as usize).predecessor }
     }
 
     /// Returns the successor of the given node.
@@ -115,7 +115,7 @@ impl AlkaidSolution {
     /// The successor node index (0 = depot/end of route)
     #[inline]
     pub fn successor(&self, node_index: Node) -> Node {
-        self.node_data[node_index as usize].successor
+        unsafe { self.node_data.get_unchecked(node_index as usize).successor }
     }
 
     /// Returns the customer served by the given node.
@@ -125,7 +125,7 @@ impl AlkaidSolution {
     /// * `node_index` - The node to query
     #[inline]
     pub fn customer(&self, node_index: Node) -> Node {
-        self.node_data[node_index as usize].customer
+        unsafe { self.node_data.get_unchecked(node_index as usize).customer }
     }
 
     /// Returns the load delivered at the given node.
@@ -135,7 +135,7 @@ impl AlkaidSolution {
     /// * `node_index` - The node to query
     #[inline]
     pub fn load(&self, node_index: Node) -> i32 {
-        self.node_data[node_index as usize].load
+        unsafe { self.node_data.get_unchecked(node_index as usize).load }
     }
 
     // ===== Setters =====

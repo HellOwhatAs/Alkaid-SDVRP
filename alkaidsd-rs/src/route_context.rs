@@ -88,7 +88,7 @@ impl RouteContext {
     /// * `node_index` - The node to query
     #[inline]
     pub fn pre_load(&self, node_index: Node) -> i32 {
-        self.pre_loads[node_index as usize]
+        unsafe { *self.pre_loads.get_unchecked(node_index as usize) }
     }
 
     /// Sets the head node of a route.
@@ -198,10 +198,10 @@ impl RouteContext {
         let mut last_node = predecessor;
         while node_index != 0 {
             let node_load = solution.load(node_index);
-            // Use saturating_add to prevent overflow in case of corrupted data.
-            // In a valid solution, total load per route should never exceed capacity,
-            // but this provides safety during debugging and development.
-            load = load.saturating_add(node_load);
+            // In a valid solution, total load per route should never exceed capacity.
+            // A debug assertion catches overflow during development.
+            load += node_load;
+            debug_assert!(load >= 0, "route load underflow detected");
             self.pre_loads[node_index as usize] = load;
             last_node = node_index;
             node_index = solution.successor(node_index);

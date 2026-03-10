@@ -253,9 +253,6 @@ fn parallel_insertion(
             }
         }
         
-        // Reset updated flags
-        updated.fill(false);
-        
         if let Some(candidate_pos) = best_candidate_position {
             let (customer, demand) = candidate_list[candidate_pos];
             

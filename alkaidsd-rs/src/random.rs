@@ -24,6 +24,14 @@ pub struct Random {
 }
 
 impl Random {
+    /// Returns the internal state for debugging purposes.
+    #[inline]
+    pub fn state(&self) -> [u32; 4] {
+        self.state
+    }
+}
+
+impl Random {
     /// Constants for float conversion (2^-24)
     /// Equivalent to 0x1.0p-24 in C/C++
     const FLOAT_MULTIPLIER: f32 = 5.9604645e-8;

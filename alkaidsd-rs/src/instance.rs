@@ -83,9 +83,19 @@ impl Instance {
     ///
     /// * `from` - Source node index
     /// * `to` - Destination node index
+    ///
+    /// # Safety
+    ///
+    /// Uses unchecked indexing for performance since this is the hottest
+    /// function in the solver (called millions of times per second).
+    /// Indices are always valid customer IDs within 0..num_customers.
     #[inline]
     pub fn distance(&self, from: Node, to: Node) -> i32 {
-        self.distance_matrix[from as usize][to as usize]
+        unsafe {
+            *self.distance_matrix
+                .get_unchecked(from as usize)
+                .get_unchecked(to as usize)
+        }
     }
 
     /// Returns the demand at a given node.
